@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# office temp/lock files
+~$*.xls*
+
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -1,25 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BondInputForm } from "@/components/BondInputForm";
-import { CashFlowTable } from "@/components/CashFlowTable";
-import { generateCashFlow } from "@/lib/cashflow";
-import { BondInput } from "@/types/bond";
+import { useState } from "react";
+import { BondLayoutForm } from "@/components/BondLayoutForm";
+import { BondLayoutInput } from "@/types/bondLayout";
 
-const DEFAULT_INPUT: BondInput = {
+const DEFAULT_INPUT: BondLayoutInput = {
+  calcBasis: "미국 30/360",
+  investorType: "개인",
   name: "",
-  faceValue: 10000000,
-  couponRate: 5,
   issueDate: "",
   maturityDate: "",
-  couponFrequency: 6,
-  purchaseYield: 5,
-  taxRate: 15.4,
+  couponRate: 0,
+  couponFrequency: "6개월",
+  creditRating: "",
+  tradeCurrency: "USD",
+  custodyCurrency: "USD",
+  trustContractDate: "",
+  purchaseYield: 0,
+  frontFeeRate: 0,
+  backFeeRate: 0,
 };
 
 export default function Home() {
-  const [input, setInput] = useState<BondInput>(DEFAULT_INPUT);
-  const rows = useMemo(() => generateCashFlow(input), [input]);
+  const [input, setInput] = useState<BondLayoutInput>(DEFAULT_INPUT);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-black">
@@ -34,8 +37,7 @@ export default function Home() {
         </header>
 
         <div className="flex flex-col gap-6">
-          <BondInputForm value={input} onChange={setInput} />
-          <CashFlowTable rows={rows} />
+          <BondLayoutForm value={input} onChange={setInput} />
         </div>
       </main>
     </div>
