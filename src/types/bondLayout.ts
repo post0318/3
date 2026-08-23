@@ -27,6 +27,6 @@ export interface BondLayoutInput {
   trustContractDate: string;
   purchaseYield: number;
 
-  frontFeeRate: number;
-  backFeeRate: number;
+  frontFeeRate: number | null;
+  backFeeRate: number | null;
 }

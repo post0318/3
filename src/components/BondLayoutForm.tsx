@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ChangeEvent, ReactNode, useState } from "react";
 import {
   BondLayoutInput,
   CalcBasis,
@@ -8,6 +8,8 @@ import {
   Currency,
   InvestorType,
 } from "@/types/bondLayout";
+import { getTrustMaturityDate } from "@/lib/couponSchedule";
+import { parseBondFile } from "@/lib/parseBondFile";
 
 interface BondLayoutFormProps {
   value: BondLayoutInput;
@@ -51,6 +53,10 @@ function ComputedValue() {
   );
 }
 
+function BlankValue() {
+  return <span>&nbsp;</span>;
+}
+
 function GroupCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col">
@@ -63,10 +69,32 @@ function GroupCard({ title, children }: { title: string; children: ReactNode }) 
 }
 
 export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
   const update = <K extends keyof BondLayoutInput>(
     key: K,
     val: BondLayoutInput[K]
   ) => onChange({ ...value, [key]: val });
+
+  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const parsed = parseBondFile(buffer);
+      const count = Object.keys(parsed).length;
+      if (count === 0) {
+        setUploadStatus("일치하는 항목을 찾지 못했습니다.");
+        return;
+      }
+      onChange({ ...value, ...parsed });
+      setUploadStatus(`${count}개 항목을 반영했습니다.`);
+    } catch {
+      setUploadStatus("파일을 읽는 중 오류가 발생했습니다.");
+    }
+  };
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
@@ -74,36 +102,42 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         입력 레이아웃
       </h2>
 
-      {/* 날짜계산 기준 / 소득자구분 */}
-      <div className="mb-4 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-zinc-200 sm:grid-cols-2 dark:border-zinc-800">
-        <Row label="날짜계산 기준">
-          <select
-            className={inputClass}
-            value={value.calcBasis}
-            onChange={(e) => update("calcBasis", e.target.value as CalcBasis)}
-          >
-            {CALC_BASIS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </Row>
-        <Row label="소득자구분">
-          <select
-            className={inputClass}
-            value={value.investorType}
-            onChange={(e) =>
-              update("investorType", e.target.value as InvestorType)
-            }
-          >
-            {INVESTOR_TYPE_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </Row>
+      {/* 소득자구분 / 편입자산정보 업로드 */}
+      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <Row label="소득자구분">
+            <select
+              className={inputClass}
+              value={value.investorType}
+              onChange={(e) =>
+                update("investorType", e.target.value as InvestorType)
+              }
+            >
+              {INVESTOR_TYPE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </Row>
+        </div>
+        <div className="hidden md:block" />
+        <div className="flex flex-col justify-center gap-2">
+          <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
+            편입자산정보 업로드
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </label>
+          {uploadStatus && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {uploadStatus}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 편입자산정보 / 매수내역 / 상품수익률 */}
@@ -158,6 +192,21 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
+          <Row label="날짜계산 기준">
+            <select
+              className={inputClass}
+              value={value.calcBasis}
+              onChange={(e) =>
+                update("calcBasis", e.target.value as CalcBasis)
+              }
+            >
+              {CALC_BASIS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </Row>
           <Row label="해외신용등급">
             <input
               className={inputClass}
@@ -197,7 +246,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
-          <Row label="매수환율(예상)">
+          <Row label="매수시점환율">
             <ComputedValue />
           </Row>
           <Row label="만기예상환율(예상)">
@@ -206,18 +255,13 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         </GroupCard>
 
         <GroupCard title="매수내역">
-          <Row label="매수가능금액">
+          <Row label="신탁투자금액">
+            <BlankValue />
+          </Row>
+          <Row label="선취보수(차감)">
             <ComputedValue />
           </Row>
-          <Row label="신탁계약일">
-            <input
-              className={inputClass}
-              type="date"
-              value={value.trustContractDate}
-              onChange={(e) => update("trustContractDate", e.target.value)}
-            />
-          </Row>
-          <Row label="신탁만기일">
+          <Row label="매수가능금액">
             <ComputedValue />
           </Row>
           <Row label="채권권면액">
@@ -250,29 +294,55 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         </GroupCard>
 
         <GroupCard title="상품수익률">
-          <Row label="선취보수율">
+          <Row label="신탁계약일">
             <input
               className={inputClass}
-              type="number"
-              step="0.0001"
-              value={value.frontFeeRate}
-              onChange={(e) => update("frontFeeRate", Number(e.target.value))}
+              type="date"
+              value={value.trustContractDate}
+              onChange={(e) => update("trustContractDate", e.target.value)}
             />
           </Row>
-          <Row label="선취금액">
-            <ComputedValue />
-          </Row>
-          <Row label="후취보수율">
-            <input
-              className={inputClass}
-              type="number"
-              step="0.0001"
-              value={value.backFeeRate}
-              onChange={(e) => update("backFeeRate", Number(e.target.value))}
-            />
+          <Row label="신탁만기일">
+            {getTrustMaturityDate(value.maturityDate) ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {getTrustMaturityDate(value.maturityDate)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="투자일수">
             <ComputedValue />
+          </Row>
+          <Row label="선취보수율(%)">
+            <input
+              className={inputClass}
+              type="number"
+              step="0.01"
+              placeholder="예: 3"
+              value={value.frontFeeRate ?? ""}
+              onChange={(e) =>
+                update(
+                  "frontFeeRate",
+                  e.target.value === "" ? null : Number(e.target.value)
+                )
+              }
+            />
+          </Row>
+          <Row label="후취보수율(%)">
+            <input
+              className={inputClass}
+              type="number"
+              step="0.01"
+              placeholder="예: 0.5"
+              value={value.backFeeRate ?? ""}
+              onChange={(e) =>
+                update(
+                  "backFeeRate",
+                  e.target.value === "" ? null : Number(e.target.value)
+                )
+              }
+            />
           </Row>
           <Row label="만기시 세전금액">
             <ComputedValue />

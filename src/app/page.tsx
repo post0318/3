@@ -1,28 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BondLayoutForm } from "@/components/BondLayoutForm";
+import { CashFlowTable } from "@/components/CashFlowTable";
+import { generateCouponSchedule } from "@/lib/couponSchedule";
 import { BondLayoutInput } from "@/types/bondLayout";
 
-const DEFAULT_INPUT: BondLayoutInput = {
-  calcBasis: "미국 30/360",
-  investorType: "개인",
-  name: "",
-  issueDate: "",
-  maturityDate: "",
-  couponRate: 0,
-  couponFrequency: "6개월",
-  creditRating: "",
-  tradeCurrency: "USD",
-  custodyCurrency: "USD",
-  trustContractDate: "",
-  purchaseYield: 0,
-  frontFeeRate: 0,
-  backFeeRate: 0,
-};
+function todayDateString(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function createDefaultInput(): BondLayoutInput {
+  return {
+    calcBasis: "미국 30/360",
+    investorType: "개인",
+    name: "",
+    issueDate: "",
+    maturityDate: "",
+    couponRate: 0,
+    couponFrequency: "6개월",
+    creditRating: "",
+    tradeCurrency: "USD",
+    custodyCurrency: "USD",
+    trustContractDate: todayDateString(),
+    purchaseYield: 0,
+    frontFeeRate: null,
+    backFeeRate: null,
+  };
+}
 
 export default function Home() {
-  const [input, setInput] = useState<BondLayoutInput>(DEFAULT_INPUT);
+  const [input, setInput] = useState<BondLayoutInput>(createDefaultInput);
+
+  const couponDates = useMemo(
+    () =>
+      generateCouponSchedule(
+        input.issueDate,
+        input.maturityDate,
+        input.couponFrequency
+      ),
+    [input.issueDate, input.maturityDate, input.couponFrequency]
+  );
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-black">
@@ -38,6 +60,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-6">
           <BondLayoutForm value={input} onChange={setInput} />
+          <CashFlowTable dates={couponDates} />
         </div>
       </main>
     </div>
