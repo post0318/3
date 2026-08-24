@@ -3,6 +3,7 @@ import {
   CalcBasis,
   CouponFrequency,
   Currency,
+  InvestorType,
   TaxStatus,
 } from "@/types/bondLayout";
 
@@ -58,6 +59,19 @@ const CURRENCY_BY_CODE: Record<number, Currency> = {
   0: "KRW",
 };
 
+const INVESTOR_TYPE_TO_CODE: Record<InvestorType, number> = {
+  개인: 1,
+  일반법인: 2,
+  금융법인: 3,
+};
+const INVESTOR_TYPE_BY_CODE: Record<number, InvestorType> = {
+  1: "개인",
+  2: "일반법인",
+  3: "금융법인",
+};
+
+const FIELD_COUNT = 20;
+
 function toBase64Url(text: string): string {
   const base64 = btoa(unescape(encodeURIComponent(text)));
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -70,9 +84,11 @@ function fromBase64Url(value: string): string {
 }
 
 /**
- * 편입자산정보 11개 필드를 "|" 구분 문자열로 압축한다.
- * 코드값(이자지급주기/과세여부/날짜계산기준/통화)을 써서 JSON 키 이름 없이
- * 값만 나열하므로 링크 길이가 JSON 방식보다 크게 줄어든다.
+ * 화면 전체 입력값(20개 필드)을 "|" 구분 문자열로 압축한다. 링크를 열면
+ * 원본과 동일한 값으로 시작하고, 이후 영업점이 매수내역/상품수익률 항목을
+ * 직접 수정하면 그때부터 달라진다. 코드값(이자지급주기/과세여부/날짜계산
+ * 기준/통화/소득자구분)을 써서 JSON 키 이름 없이 값만 나열하므로 링크
+ * 길이가 짧아진다.
  */
 function pack(value: BondLayoutInput): string {
   const fields = [
@@ -87,13 +103,22 @@ function pack(value: BondLayoutInput): string {
     value.creditRating,
     String(CURRENCY_TO_CODE[value.tradeCurrency] ?? ""),
     String(CURRENCY_TO_CODE[value.custodyCurrency] ?? ""),
+    String(INVESTOR_TYPE_TO_CODE[value.investorType] ?? ""),
+    value.purchaseFxRate,
+    value.maturityFxRate,
+    value.trustContractDate,
+    value.purchaseYield,
+    value.trustInvestmentAmount,
+    value.frontFeeRate,
+    value.backFeeRate,
+    value.incomeTaxRate,
   ];
   return fields.map((f) => (f ?? "").replace(/\|/g, " ")).join("|");
 }
 
 function unpack(text: string): Partial<BondLayoutInput> | null {
   const parts = text.split("|");
-  if (parts.length < 11) return null;
+  if (parts.length < FIELD_COUNT) return null;
 
   const [
     name,
@@ -107,6 +132,15 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
     creditRating,
     tradeCurrencyCode,
     custodyCurrencyCode,
+    investorTypeCode,
+    purchaseFxRate,
+    maturityFxRate,
+    trustContractDate,
+    purchaseYield,
+    trustInvestmentAmount,
+    frontFeeRate,
+    backFeeRate,
+    incomeTaxRate,
   ] = parts;
 
   const result: Partial<BondLayoutInput> = {};
@@ -116,6 +150,14 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
   if (couponRate) result.couponRate = couponRate;
   if (recentCouponDate) result.recentCouponDate = recentCouponDate;
   if (creditRating) result.creditRating = creditRating;
+  if (purchaseFxRate) result.purchaseFxRate = purchaseFxRate;
+  if (maturityFxRate) result.maturityFxRate = maturityFxRate;
+  if (trustContractDate) result.trustContractDate = trustContractDate;
+  if (purchaseYield) result.purchaseYield = purchaseYield;
+  if (trustInvestmentAmount) result.trustInvestmentAmount = trustInvestmentAmount;
+  if (frontFeeRate) result.frontFeeRate = frontFeeRate;
+  if (backFeeRate) result.backFeeRate = backFeeRate;
+  if (incomeTaxRate) result.incomeTaxRate = incomeTaxRate;
 
   if (couponFrequencyCode !== "") {
     const couponFrequency = COUPON_FREQUENCY_BY_CODE[Number(couponFrequencyCode)];
@@ -137,11 +179,15 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
     const custodyCurrency = CURRENCY_BY_CODE[Number(custodyCurrencyCode)];
     if (custodyCurrency) result.custodyCurrency = custodyCurrency;
   }
+  if (investorTypeCode !== "") {
+    const investorType = INVESTOR_TYPE_BY_CODE[Number(investorTypeCode)];
+    if (investorType) result.investorType = investorType;
+  }
 
   return result;
 }
 
-/** 편입자산정보만 담아 현재 페이지 URL에 붙일 공유 링크를 만든다 */
+/** 화면 전체 입력값을 담아 현재 페이지 URL에 붙일 공유 링크를 만든다 */
 export function encodeBondLink(value: BondLayoutInput): string {
   const encoded = toBase64Url(pack(value));
 
@@ -152,7 +198,7 @@ export function encodeBondLink(value: BondLayoutInput): string {
   return url.toString();
 }
 
-/** 링크의 bond 쿼리 파라미터를 편입자산정보 필드로 되돌린다 */
+/** 링크의 bond 쿼리 파라미터를 화면 입력값으로 되돌린다 */
 export function decodeBondLink(search: string): Partial<BondLayoutInput> | null {
   const encoded = new URLSearchParams(search).get("bond");
   if (!encoded) return null;
