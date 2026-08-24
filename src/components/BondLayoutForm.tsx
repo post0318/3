@@ -26,6 +26,7 @@ import { computeBondPricing } from "@/lib/bondPricing";
 import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
 import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { parseBondFile } from "@/lib/parseBondFile";
+import { encodeBondLink } from "@/lib/bondLink";
 
 function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR", {
@@ -34,9 +35,16 @@ function formatAmount(n: number): string {
   });
 }
 
+/** 수탁통화·거래통화 중 하나라도 KRW면 소수점 이하를 절사(trunc)해 정수로 표시한다 */
+function formatSettlementAmount(n: number, isKrw: boolean): string {
+  return isKrw ? Math.trunc(n).toLocaleString("ko-KR") : formatAmount(n);
+}
+
 interface BondLayoutFormProps {
   value: BondLayoutInput;
   onChange: (value: BondLayoutInput) => void;
+  locked: boolean;
+  onLockedChange: (locked: boolean) => void;
 }
 
 const CALC_BASIS_OPTIONS: CalcBasis[] = [
@@ -165,8 +173,14 @@ function GroupCard({ title, children }: { title: string; children: ReactNode }) 
   );
 }
 
-export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
+export function BondLayoutForm({
+  value,
+  onChange,
+  locked,
+  onLockedChange,
+}: BondLayoutFormProps) {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [linkStatus, setLinkStatus] = useState<string | null>(null);
 
   const update = <K extends keyof BondLayoutInput>(
     key: K,
@@ -215,6 +229,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         recentCouponDate: value.recentCouponDate,
         custodyCurrency: value.custodyCurrency,
         purchaseFxRate: value.purchaseFxRate,
+        maturityFxRate: value.maturityFxRate,
         trustInvestmentAmount: value.trustInvestmentAmount,
         frontFeeRate: value.frontFeeRate,
         backFeeRate: value.backFeeRate,
@@ -231,6 +246,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
       value.recentCouponDate,
       value.custodyCurrency,
       value.purchaseFxRate,
+      value.maturityFxRate,
       value.trustInvestmentAmount,
       value.frontFeeRate,
       value.backFeeRate,
@@ -279,9 +295,20 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         return;
       }
       onChange({ ...value, ...parsed });
+      onLockedChange(true);
       setUploadStatus(`${count}개 항목을 반영했습니다.`);
     } catch {
       setUploadStatus("파일을 읽는 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleCreateLink = async () => {
+    const link = encodeBondLink(value);
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkStatus("링크를 클립보드에 복사했습니다.");
+    } catch {
+      setLinkStatus(link);
     }
   };
 
@@ -302,7 +329,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
         </>
       )}
 
-      {/* 소득자구분 / 편입자산정보 업로드 */}
+      {/* 소득자구분 / 편입자산정보 공유 링크 */}
       <div className="mb-4 print:mb-1 grid grid-cols-1 gap-4 md:grid-cols-3 print:hidden">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
           <Row label="소득자구분" editable>
@@ -321,10 +348,9 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             </select>
           </Row>
         </div>
-        <div className="hidden md:block print:block" />
-        <div className="flex items-center gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-2 print:hidden md:col-span-2">
           <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
-            편입자산정보 업로드
+            업로드
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -332,9 +358,27 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               onChange={handleUpload}
             />
           </label>
-          {uploadStatus && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {uploadStatus}
+          <button
+            type="button"
+            onClick={handleCreateLink}
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            링크 생성
+          </button>
+          <button
+            type="button"
+            onClick={() => onLockedChange(!locked)}
+            className={
+              locked
+                ? "inline-flex w-fit items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
+                : "inline-flex w-fit items-center gap-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            }
+          >
+            {locked ? "🔒 편입자산정보 잠김 (해제)" : "🔓 편입자산정보 잠금"}
+          </button>
+          {(uploadStatus || linkStatus) && (
+            <p className="ml-2 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+              {uploadStatus || linkStatus}
             </p>
           )}
         </div>
@@ -349,6 +393,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               type="text"
               placeholder="예: KORELE 7.95 04/01/2096"
               value={value.name}
+              disabled={locked}
               onChange={(e) => update("name", e.target.value)}
               onKeyDown={commitOnEnter}
             />
@@ -358,6 +403,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               className={inputClass}
               type="date"
               value={value.issueDate}
+              disabled={locked}
               onChange={(e) => update("issueDate", clampDateYear(e.target.value))}
               onKeyDown={commitOnEnter}
             />
@@ -367,6 +413,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               className={inputClass}
               type="date"
               value={value.maturityDate}
+              disabled={locked}
               onChange={(e) => update("maturityDate", clampDateYear(e.target.value))}
               onKeyDown={commitOnEnter}
             />
@@ -378,6 +425,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               inputMode="decimal"
               placeholder="예: 7.95"
               value={value.couponRate}
+              disabled={locked}
               onFocus={selectAllOnFocus}
               onChange={(e) => {
                 if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
@@ -392,6 +440,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             <select
               className={`${inputClass} print:hidden`}
               value={value.couponFrequency}
+              disabled={locked}
               onChange={(e) =>
                 update("couponFrequency", e.target.value as CouponFrequency)
               }
@@ -417,6 +466,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 ) ||
                 ""
               }
+              disabled={locked}
               onChange={(e) =>
                 update("recentCouponDate", clampDateYear(e.target.value))
               }
@@ -427,6 +477,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             <select
               className={`${inputClass} print:hidden`}
               value={value.calcBasis}
+              disabled={locked}
               onChange={(e) =>
                 update("calcBasis", e.target.value as CalcBasis)
               }
@@ -445,6 +496,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               type="text"
               placeholder="예: 무디스: Aa2 / S&P: AA"
               value={value.creditRating}
+              disabled={locked}
               onChange={(e) => update("creditRating", e.target.value)}
               onKeyDown={commitOnEnter}
             />
@@ -453,6 +505,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             <select
               className={`${inputClass} print:hidden`}
               value={value.taxStatus}
+              disabled={locked}
               onChange={(e) =>
                 update("taxStatus", e.target.value as TaxStatus)
               }
@@ -496,6 +549,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                     custodyCurrency,
                     purchaseFxRate: "",
                     maturityFxRate: "",
+                    trustInvestmentAmount: "100000000",
                   });
                 } else {
                   onChange({
@@ -503,6 +557,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                     custodyCurrency,
                     purchaseFxRate: "1",
                     maturityFxRate: "1",
+                    trustInvestmentAmount: "1000000",
                   });
                 }
               }}
@@ -629,7 +684,10 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
           <Row label="결제금액">
             {pricing ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {formatAmount(pricing.settlementAmount)}
+                {formatSettlementAmount(
+                  pricing.settlementAmount,
+                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                )}
               </span>
             ) : (
               <ComputedValue />
@@ -638,10 +696,10 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
           <Row label="현금잔액">
             {pricing ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {pricing.cashBalance.toLocaleString("ko-KR", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatSettlementAmount(
+                  pricing.cashBalance,
+                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                )}
               </span>
             ) : (
               <ComputedValue />
@@ -661,9 +719,18 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                   update("purchaseFxRate", e.target.value);
                 }
               }}
-              onBlur={(e) =>
-                update("purchaseFxRate", formatTwoDecimals(e.target.value))
-              }
+              onBlur={(e) => {
+                const formatted = formatTwoDecimals(e.target.value);
+                if (value.custodyCurrency === "KRW") {
+                  onChange({
+                    ...value,
+                    purchaseFxRate: formatted,
+                    maturityFxRate: formatted,
+                  });
+                } else {
+                  update("purchaseFxRate", formatted);
+                }
+              }}
               onKeyDown={commitOnEnter}
             />
           </Row>

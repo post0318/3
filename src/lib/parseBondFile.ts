@@ -3,6 +3,7 @@ import {
   BondLayoutInput,
   CalcBasis,
   CouponFrequency,
+  Currency,
   TaxStatus,
 } from "@/types/bondLayout";
 
@@ -15,20 +16,52 @@ type UploadableField =
   | "recentCouponDate"
   | "taxStatus"
   | "calcBasis"
-  | "creditRating";
+  | "creditRating"
+  | "frontFeeRate"
+  | "backFeeRate"
+  | "tradeCurrency"
+  | "custodyCurrency";
 
 const LABEL_TO_FIELD: Record<string, UploadableField> = {
   종목명: "name",
   발행일: "issueDate",
   만기일: "maturityDate",
   표면이율: "couponRate",
+  "표면이율(%)": "couponRate",
   "이자지급 주기": "couponFrequency",
   최근이표일: "recentCouponDate",
   과세여부: "taxStatus",
   "날짜계산 기준": "calcBasis",
   해외신용등급: "creditRating",
+  선취보수율: "frontFeeRate",
+  "선취보수율(%)": "frontFeeRate",
+  후취보수율: "backFeeRate",
+  "후취보수율(%)": "backFeeRate",
+  거래통화: "tradeCurrency",
+  수탁통화: "custodyCurrency",
 };
 
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
+
+const CALC_BASIS_VALUES: CalcBasis[] = [
+  "미국 30/360",
+  "ACT/ACT",
+  "ACT/360",
+  "ACT/365",
+  "유럽 30/360",
+];
+
+const TAX_STATUS_VALUES: TaxStatus[] = ["일반과세", "비과세(농특세)", "비과세"];
+
+const COUPON_FREQUENCY_VALUES: CouponFrequency[] = ["3개월", "6개월", "12개월"];
+
+/**
+ * 업로드 파일에서 숫자 구분자로 들어오는 필드의 코드 매핑.
+ * 1. 이자지급 주기: 3개월=1, 6개월=2, 12개월=3
+ * 2. 날짜계산 기준: 미국 30/360=1, ACT/ACT=2, ACT/360=3, ACT/365=4, 유럽 30/360=5
+ * 3. 과세여부: 일반과세=1, 비과세(농특세)=2, 비과세=3
+ * 4. 거래통화: USD=1, EUR=2, CNY=3, JPY=4, KRW=0
+ */
 const TAX_STATUS_BY_CODE: Record<number, TaxStatus> = {
   1: "일반과세",
   2: "비과세(농특세)",
@@ -47,6 +80,14 @@ const COUPON_FREQUENCY_BY_CODE: Record<number, CouponFrequency> = {
   1: "3개월",
   2: "6개월",
   3: "12개월",
+};
+
+const TRADE_CURRENCY_BY_CODE: Record<number, Currency> = {
+  1: "USD",
+  2: "EUR",
+  3: "CNY",
+  4: "JPY",
+  0: "KRW",
 };
 
 /**
@@ -119,26 +160,62 @@ export function parseBondFile(buffer: ArrayBuffer): Partial<BondLayoutInput> {
             result.couponRate = String(Math.round(raw * 100) / 100);
             found.add(field);
           }
-        } else if (field === "couponFrequency") {
-          const code = Number(valueCell.v);
-          const couponFrequency = COUPON_FREQUENCY_BY_CODE[code];
-          if (couponFrequency) {
-            result.couponFrequency = couponFrequency;
+        } else if (field === "frontFeeRate" || field === "backFeeRate") {
+          const raw = Number(valueCell.v);
+          if (!Number.isNaN(raw)) {
+            result[field] = raw.toFixed(2);
             found.add(field);
+          }
+        } else if (field === "couponFrequency") {
+          const text =
+            typeof valueCell.v === "string" ? valueCell.v.trim() : "";
+          if (COUPON_FREQUENCY_VALUES.includes(text as CouponFrequency)) {
+            result.couponFrequency = text as CouponFrequency;
+            found.add(field);
+          } else {
+            const couponFrequency = COUPON_FREQUENCY_BY_CODE[Number(valueCell.v)];
+            if (couponFrequency) {
+              result.couponFrequency = couponFrequency;
+              found.add(field);
+            }
           }
         } else if (field === "calcBasis") {
-          const code = Number(valueCell.v);
-          const calcBasis = CALC_BASIS_BY_CODE[code];
-          if (calcBasis) {
-            result.calcBasis = calcBasis;
+          const text =
+            typeof valueCell.v === "string" ? valueCell.v.trim() : "";
+          if (CALC_BASIS_VALUES.includes(text as CalcBasis)) {
+            result.calcBasis = text as CalcBasis;
             found.add(field);
+          } else {
+            const calcBasis = CALC_BASIS_BY_CODE[Number(valueCell.v)];
+            if (calcBasis) {
+              result.calcBasis = calcBasis;
+              found.add(field);
+            }
           }
         } else if (field === "taxStatus") {
-          const code = Number(valueCell.v);
-          const taxStatus = TAX_STATUS_BY_CODE[code];
-          if (taxStatus) {
-            result.taxStatus = taxStatus;
+          const text =
+            typeof valueCell.v === "string" ? valueCell.v.trim() : "";
+          if (TAX_STATUS_VALUES.includes(text as TaxStatus)) {
+            result.taxStatus = text as TaxStatus;
             found.add(field);
+          } else {
+            const taxStatus = TAX_STATUS_BY_CODE[Number(valueCell.v)];
+            if (taxStatus) {
+              result.taxStatus = taxStatus;
+              found.add(field);
+            }
+          }
+        } else if (field === "tradeCurrency" || field === "custodyCurrency") {
+          const text = String(valueCell.v).trim().toUpperCase();
+          if (CURRENCY_VALUES.includes(text as Currency)) {
+            result[field] = text as Currency;
+            found.add(field);
+          } else if (field === "tradeCurrency") {
+            const currency = TRADE_CURRENCY_BY_CODE[Number(valueCell.v)];
+            if (currency) {
+              result.tradeCurrency = currency;
+              found.add(field);
+            }
           }
         }
       }

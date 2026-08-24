@@ -30,6 +30,7 @@ export interface CashFlowScheduleInputs {
   recentCouponDate: string;
   custodyCurrency: Currency;
   purchaseFxRate: string;
+  maturityFxRate: string;
   trustInvestmentAmount: string;
   frontFeeRate: string;
   backFeeRate: string;
@@ -59,7 +60,10 @@ export function generateFixCashFlow(
   if (Number.isNaN(backFeeRate)) return null;
 
   const isKrw = input.custodyCurrency === "KRW";
-  const fxRate = isKrw ? Number(input.purchaseFxRate) : 1;
+  const maturityFxRate = isKrw ? Number(input.maturityFxRate) : 1;
+  if (isKrw && (!maturityFxRate || Number.isNaN(maturityFxRate) || maturityFxRate <= 0)) {
+    return null;
+  }
   const months = FREQUENCY_MONTHS[input.couponFrequency];
   const freqPerYear = 12 / months;
   const trustInvestmentAmount = Number(input.trustInvestmentAmount);
@@ -81,7 +85,7 @@ export function generateFixCashFlow(
   const couponAmount = roundDown(
     (rate * pricing.faceValue) / freqPerYear,
     2
-  ) * fxRate;
+  ) * maturityFxRate;
 
   const rows: CashFlowRow[] = [];
   let periodStart = contractDate;
@@ -90,13 +94,13 @@ export function generateFixCashFlow(
 
   dates.forEach((date, index) => {
     const isMaturity = toTime(date) === toTime(maturity);
-    const principal = isMaturity ? pricing.faceValue : 0;
+    const principal = isMaturity ? pricing.faceValue * maturityFxRate : 0;
     const interest = couponAmount;
 
     let taxableIncome: number;
     if (index === 0) {
       const preOwnedInterest =
-        pricing.faceValue * rate * fxRate * pricing.accrualFraction;
+        pricing.faceValue * rate * maturityFxRate * pricing.accrualFraction;
       taxableIncome = Math.trunc(interest - preOwnedInterest);
     } else {
       taxableIncome = interest;

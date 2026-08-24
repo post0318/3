@@ -61,7 +61,7 @@ export function computeMaturitySummary(
 
   const preTaxMaturityAmount = Math.trunc(
     totalInterest +
-      totalPrincipal * fx +
+      totalPrincipal +
       pricing.cashBalance -
       totalBackFeeEstimate
   );
@@ -71,7 +71,7 @@ export function computeMaturitySummary(
   );
 
   const postTaxMaturityAmount = Math.trunc(
-    totalNetAmount + totalPrincipal * fx + pricing.cashBalance - lastBackFee
+    totalNetAmount + totalPrincipal + pricing.cashBalance - lastBackFee
   );
 
   const preTaxYield =

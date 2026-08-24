@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BondLayoutForm } from "@/components/BondLayoutForm";
 import { CashFlowTable } from "@/components/CashFlowTable";
 import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
+import { decodeBondLink } from "@/lib/bondLink";
 import { BondLayoutInput } from "@/types/bondLayout";
 
 function todayDateString(): string {
@@ -31,16 +32,28 @@ function createDefaultInput(): BondLayoutInput {
     purchaseFxRate: "1",
     maturityFxRate: "1",
     trustContractDate: todayDateString(),
-    purchaseYield: "",
-    trustInvestmentAmount: "",
+    purchaseYield: "0.00",
+    trustInvestmentAmount: "1000000",
     frontFeeRate: "0.00",
     backFeeRate: "0.00",
     incomeTaxRate: "15.40",
   };
 }
 
+function createInitialInput(): BondLayoutInput {
+  if (typeof window === "undefined") return createDefaultInput();
+  const decoded = decodeBondLink(window.location.search);
+  return decoded ? { ...createDefaultInput(), ...decoded } : createDefaultInput();
+}
+
+function createInitialLocked(): boolean {
+  if (typeof window === "undefined") return false;
+  return decodeBondLink(window.location.search) !== null;
+}
+
 export default function Home() {
-  const [input, setInput] = useState<BondLayoutInput>(createDefaultInput);
+  const [input, setInput] = useState<BondLayoutInput>(createInitialInput);
+  const [locked, setLocked] = useState<boolean>(createInitialLocked);
 
   const cashFlowRows = useMemo(
     () =>
@@ -54,6 +67,7 @@ export default function Home() {
         recentCouponDate: input.recentCouponDate,
         custodyCurrency: input.custodyCurrency,
         purchaseFxRate: input.purchaseFxRate,
+        maturityFxRate: input.maturityFxRate,
         trustInvestmentAmount: input.trustInvestmentAmount,
         frontFeeRate: input.frontFeeRate,
         backFeeRate: input.backFeeRate,
@@ -70,6 +84,7 @@ export default function Home() {
       input.recentCouponDate,
       input.custodyCurrency,
       input.purchaseFxRate,
+      input.maturityFxRate,
       input.trustInvestmentAmount,
       input.frontFeeRate,
       input.backFeeRate,
@@ -110,7 +125,12 @@ export default function Home() {
         </header>
 
         <div className="flex flex-col gap-6 print:gap-2">
-          <BondLayoutForm value={input} onChange={setInput} />
+          <BondLayoutForm
+            value={input}
+            onChange={setInput}
+            locked={locked}
+            onLockedChange={setLocked}
+          />
           <CashFlowTable
             rows={cashFlowRows}
             custodyCurrency={input.custodyCurrency}
