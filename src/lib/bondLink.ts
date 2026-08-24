@@ -1,4 +1,8 @@
 import {
+  compressToEncodedURIComponent,
+  decompressFromEncodedURIComponent,
+} from "lz-string";
+import {
   BondLayoutInput,
   CalcBasis,
   CouponFrequency,
@@ -72,15 +76,16 @@ const INVESTOR_TYPE_BY_CODE: Record<number, InvestorType> = {
 
 const FIELD_COUNT = 20;
 
-function toBase64Url(text: string): string {
-  const base64 = btoa(unescape(encodeURIComponent(text)));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+/** "1996-04-01" -> "19960401" (링크 길이를 줄이기 위한 날짜 압축) */
+function stripDateDashes(iso: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.replace(/-/g, "") : iso;
 }
 
-function fromBase64Url(value: string): string {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  return decodeURIComponent(escape(atob(padded)));
+/** "19960401" -> "1996-04-01" */
+function restoreDateDashes(compact: string): string {
+  return /^\d{8}$/.test(compact)
+    ? `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`
+    : compact;
 }
 
 /**
@@ -93,11 +98,11 @@ function fromBase64Url(value: string): string {
 function pack(value: BondLayoutInput): string {
   const fields = [
     value.name,
-    value.issueDate,
-    value.maturityDate,
+    stripDateDashes(value.issueDate),
+    stripDateDashes(value.maturityDate),
     value.couponRate,
     String(COUPON_FREQUENCY_TO_CODE[value.couponFrequency] ?? ""),
-    value.recentCouponDate,
+    stripDateDashes(value.recentCouponDate),
     String(TAX_STATUS_TO_CODE[value.taxStatus] ?? ""),
     String(CALC_BASIS_TO_CODE[value.calcBasis] ?? ""),
     value.creditRating,
@@ -106,7 +111,7 @@ function pack(value: BondLayoutInput): string {
     String(INVESTOR_TYPE_TO_CODE[value.investorType] ?? ""),
     value.purchaseFxRate,
     value.maturityFxRate,
-    value.trustContractDate,
+    stripDateDashes(value.trustContractDate),
     value.purchaseYield,
     value.trustInvestmentAmount,
     value.frontFeeRate,
@@ -145,14 +150,14 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
 
   const result: Partial<BondLayoutInput> = {};
   if (name) result.name = name;
-  if (issueDate) result.issueDate = issueDate;
-  if (maturityDate) result.maturityDate = maturityDate;
+  if (issueDate) result.issueDate = restoreDateDashes(issueDate);
+  if (maturityDate) result.maturityDate = restoreDateDashes(maturityDate);
   if (couponRate) result.couponRate = couponRate;
-  if (recentCouponDate) result.recentCouponDate = recentCouponDate;
+  if (recentCouponDate) result.recentCouponDate = restoreDateDashes(recentCouponDate);
   if (creditRating) result.creditRating = creditRating;
   if (purchaseFxRate) result.purchaseFxRate = purchaseFxRate;
   if (maturityFxRate) result.maturityFxRate = maturityFxRate;
-  if (trustContractDate) result.trustContractDate = trustContractDate;
+  if (trustContractDate) result.trustContractDate = restoreDateDashes(trustContractDate);
   if (purchaseYield) result.purchaseYield = purchaseYield;
   if (trustInvestmentAmount) result.trustInvestmentAmount = trustInvestmentAmount;
   if (frontFeeRate) result.frontFeeRate = frontFeeRate;
@@ -189,7 +194,7 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
 
 /** 화면 전체 입력값을 담아 현재 페이지 URL에 붙일 공유 링크를 만든다 */
 export function encodeBondLink(value: BondLayoutInput): string {
-  const encoded = toBase64Url(pack(value));
+  const encoded = compressToEncodedURIComponent(pack(value));
 
   const url = new URL(window.location.href);
   url.search = "";
@@ -204,7 +209,9 @@ export function decodeBondLink(search: string): Partial<BondLayoutInput> | null 
   if (!encoded) return null;
 
   try {
-    return unpack(fromBase64Url(encoded));
+    const text = decompressFromEncodedURIComponent(encoded);
+    if (!text) return null;
+    return unpack(text);
   } catch {
     return null;
   }
