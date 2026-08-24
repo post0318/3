@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { BondLayoutForm } from "@/components/BondLayoutForm";
 import { CashFlowTable } from "@/components/CashFlowTable";
-import { generateCouponSchedule } from "@/lib/couponSchedule";
+import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
 import { BondLayoutInput } from "@/types/bondLayout";
 
 function todayDateString(): string {
@@ -21,29 +21,61 @@ function createDefaultInput(): BondLayoutInput {
     name: "",
     issueDate: "",
     maturityDate: "",
-    couponRate: 0,
+    couponRate: "",
     couponFrequency: "6개월",
+    recentCouponDate: "",
+    taxStatus: "일반과세",
     creditRating: "",
     tradeCurrency: "USD",
     custodyCurrency: "USD",
+    purchaseFxRate: "1",
+    maturityFxRate: "1",
     trustContractDate: todayDateString(),
-    purchaseYield: 0,
-    frontFeeRate: null,
-    backFeeRate: null,
+    purchaseYield: "",
+    trustInvestmentAmount: "",
+    frontFeeRate: "",
+    backFeeRate: "",
+    incomeTaxRate: "",
   };
 }
 
 export default function Home() {
   const [input, setInput] = useState<BondLayoutInput>(createDefaultInput);
 
-  const couponDates = useMemo(
+  const cashFlowRows = useMemo(
     () =>
-      generateCouponSchedule(
-        input.issueDate,
-        input.maturityDate,
-        input.couponFrequency
-      ),
-    [input.issueDate, input.maturityDate, input.couponFrequency]
+      generateFixCashFlow({
+        maturityDate: input.maturityDate,
+        couponRate: input.couponRate,
+        couponFrequency: input.couponFrequency,
+        purchaseYield: input.purchaseYield,
+        calcBasis: input.calcBasis,
+        trustContractDate: input.trustContractDate,
+        recentCouponDate: input.recentCouponDate,
+        custodyCurrency: input.custodyCurrency,
+        purchaseFxRate: input.purchaseFxRate,
+        trustInvestmentAmount: input.trustInvestmentAmount,
+        frontFeeRate: input.frontFeeRate,
+        backFeeRate: input.backFeeRate,
+        investorType: input.investorType,
+        taxStatus: input.taxStatus,
+      }),
+    [
+      input.maturityDate,
+      input.couponRate,
+      input.couponFrequency,
+      input.purchaseYield,
+      input.calcBasis,
+      input.trustContractDate,
+      input.recentCouponDate,
+      input.custodyCurrency,
+      input.purchaseFxRate,
+      input.trustInvestmentAmount,
+      input.frontFeeRate,
+      input.backFeeRate,
+      input.investorType,
+      input.taxStatus,
+    ]
   );
 
   return (
@@ -60,7 +92,12 @@ export default function Home() {
 
         <div className="flex flex-col gap-6">
           <BondLayoutForm value={input} onChange={setInput} />
-          <CashFlowTable dates={couponDates} />
+          <CashFlowTable
+            rows={cashFlowRows}
+            tradeCurrency={input.tradeCurrency}
+            custodyCurrency={input.custodyCurrency}
+            name={input.name}
+          />
         </div>
       </main>
     </div>

@@ -11,6 +11,8 @@ export type CouponFrequency = "3개월" | "6개월" | "12개월";
 
 export type Currency = "USD" | "EUR" | "CNY" | "JPY" | "KRW";
 
+export type TaxStatus = "일반과세" | "비과세(농특세)" | "비과세";
+
 export interface BondLayoutInput {
   calcBasis: CalcBasis;
   investorType: InvestorType;
@@ -18,15 +20,21 @@ export interface BondLayoutInput {
   name: string;
   issueDate: string;
   maturityDate: string;
-  couponRate: number;
+  couponRate: string;
   couponFrequency: CouponFrequency;
+  recentCouponDate: string;
+  taxStatus: TaxStatus;
   creditRating: string;
   tradeCurrency: Currency;
   custodyCurrency: Currency;
+  purchaseFxRate: string;
+  maturityFxRate: string;
 
   trustContractDate: string;
-  purchaseYield: number;
+  purchaseYield: string;
 
-  frontFeeRate: number | null;
-  backFeeRate: number | null;
+  trustInvestmentAmount: string;
+  frontFeeRate: string;
+  backFeeRate: string;
+  incomeTaxRate: string;
 }

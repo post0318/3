@@ -7,6 +7,7 @@ type UploadableField =
   | "maturityDate"
   | "couponRate"
   | "couponFrequency"
+  | "recentCouponDate"
   | "calcBasis"
   | "creditRating";
 
@@ -16,6 +17,7 @@ const LABEL_TO_FIELD: Record<string, UploadableField> = {
   만기일: "maturityDate",
   표면이율: "couponRate",
   "이자지급 주기": "couponFrequency",
+  최근이표일: "recentCouponDate",
   "날짜계산 기준": "calcBasis",
   해외신용등급: "creditRating",
 };
@@ -68,7 +70,11 @@ export function parseBondFile(buffer: ArrayBuffer): Partial<BondLayoutInput> {
         if (field === "name" || field === "creditRating") {
           result[field] = String(valueCell.v);
           found.add(field);
-        } else if (field === "issueDate" || field === "maturityDate") {
+        } else if (
+          field === "issueDate" ||
+          field === "maturityDate" ||
+          field === "recentCouponDate"
+        ) {
           const iso = toIsoDate(valueCell.v);
           if (iso) {
             result[field] = iso;
@@ -77,7 +83,8 @@ export function parseBondFile(buffer: ArrayBuffer): Partial<BondLayoutInput> {
         } else if (field === "couponRate") {
           const raw = Number(valueCell.v);
           if (!Number.isNaN(raw)) {
-            result.couponRate = Math.abs(raw) < 1 ? raw * 100 : raw;
+            const percent = Math.abs(raw) < 1 ? raw * 100 : raw;
+            result.couponRate = String(Math.round(percent * 100) / 100);
             found.add(field);
           }
         } else if (field === "couponFrequency") {

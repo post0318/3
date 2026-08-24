@@ -2,32 +2,115 @@ import { CouponFrequency } from "@/types/bondLayout";
 
 const TRUST_MATURITY_LEAD_DAYS = 11;
 
-const FREQUENCY_MONTHS: Record<CouponFrequency, number> = {
+export const FREQUENCY_MONTHS: Record<CouponFrequency, number> = {
   "3개월": 3,
   "6개월": 6,
   "12개월": 12,
 };
 
-function addMonths(date: Date, months: number): Date {
+/** PRICE 함수의 frequency 인자(1/2/4)로 변환 */
+export const FREQUENCY_PER_YEAR: Record<CouponFrequency, number> = {
+  "12개월": 1,
+  "6개월": 2,
+  "3개월": 4,
+};
+
+export function addMonths(date: Date, months: number): Date {
   const result = new Date(date);
   result.setMonth(result.getMonth() + months);
   return result;
 }
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 }
 
-function toDateString(date: Date): string {
+export function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/** 결제일 = 신탁계약일로부터 영업일(토/일 제외) n일 후 (WORKDAY, 공휴일 미반영) */
+export function getSettlementDate(
+  trustContractDate: string,
+  businessDays = 2
+): Date | null {
+  const start = new Date(trustContractDate);
+  if (Number.isNaN(start.getTime())) return null;
+
+  let date = start;
+  let remaining = businessDays;
+  while (remaining > 0) {
+    date = addDays(date, 1);
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  return date;
+}
+
+export interface CouponPeriod {
+  previousCouponDate: Date;
+  nextCouponDate: Date;
+  /** 결제일부터 만기일까지 남은 이표 횟수 (COUPNUM) */
+  periodsRemaining: number;
+}
+
+/** 만기일을 기준으로 이자지급주기만큼씩 거슬러 올라가, 기준일이 속한 이표기간(직전/차기 이표일)을 찾는다 */
+export function getCouponPeriod(
+  maturity: Date,
+  frequency: CouponFrequency,
+  referenceDate: Date
+): CouponPeriod {
+  const months = FREQUENCY_MONTHS[frequency];
+  let nextCouponDate = maturity;
+  let previousCouponDate = addMonths(nextCouponDate, -months);
+  let periodsRemaining = 1;
+
+  while (previousCouponDate > referenceDate) {
+    nextCouponDate = previousCouponDate;
+    previousCouponDate = addMonths(nextCouponDate, -months);
+    periodsRemaining++;
+  }
+
+  return { previousCouponDate, nextCouponDate, periodsRemaining };
 }
 
 export function getTrustMaturityDate(maturityDate: string): string | null {
   const maturity = new Date(maturityDate);
   if (Number.isNaN(maturity.getTime())) return null;
   return toDateString(addDays(maturity, TRUST_MATURITY_LEAD_DAYS));
+}
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/** 투자일수 = 신탁만기일 - 신탁계약일 (일) */
+export function getInvestmentDays(
+  trustContractDate: string,
+  maturityDate: string
+): number | null {
+  const trustMaturity = getTrustMaturityDate(maturityDate);
+  if (!trustMaturity) return null;
+
+  const contract = new Date(trustContractDate);
+  if (Number.isNaN(contract.getTime())) return null;
+
+  const diff = new Date(trustMaturity).getTime() - contract.getTime();
+  return Math.round(diff / MS_PER_DAY);
+}
+
+/** 최근이표일 = 만기일에서 이자지급주기만큼씩 거슬러 올라가 기준일(결제일) 이전인 가장 가까운 이표일 */
+export function getRecentCouponDate(
+  maturityDate: string,
+  frequency: CouponFrequency,
+  referenceDate: Date = new Date()
+): string | null {
+  const maturity = new Date(maturityDate);
+  if (Number.isNaN(maturity.getTime())) return null;
+
+  return toDateString(
+    getCouponPeriod(maturity, frequency, referenceDate).previousCouponDate
+  );
 }
 
 /** 이자계산일 목록. 신탁만기일(=만기일+11일)과 이자지급주기에 따라 행 수가 자동으로 변동한다. */

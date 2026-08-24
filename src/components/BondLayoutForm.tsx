@@ -1,15 +1,35 @@
 "use client";
 
-import { ChangeEvent, ReactNode, useState } from "react";
+import {
+  ChangeEvent,
+  FocusEvent,
+  KeyboardEvent,
+  ReactNode,
+  useMemo,
+  useState,
+} from "react";
 import {
   BondLayoutInput,
   CalcBasis,
   CouponFrequency,
   Currency,
   InvestorType,
+  TaxStatus,
 } from "@/types/bondLayout";
-import { getTrustMaturityDate } from "@/lib/couponSchedule";
+import {
+  getInvestmentDays,
+  getRecentCouponDate,
+  getSettlementDate,
+  getTrustMaturityDate,
+} from "@/lib/couponSchedule";
+import { computeBondPricing } from "@/lib/bondPricing";
+import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
+import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { parseBondFile } from "@/lib/parseBondFile";
+
+function formatAmount(n: number): string {
+  return n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
 
 interface BondLayoutFormProps {
   value: BondLayoutInput;
@@ -26,6 +46,8 @@ const CALC_BASIS_OPTIONS: CalcBasis[] = [
 
 const INVESTOR_TYPE_OPTIONS: InvestorType[] = ["개인", "일반법인", "금융법인"];
 
+const TAX_STATUS_OPTIONS: TaxStatus[] = ["일반과세", "비과세(농특세)", "비과세"];
+
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
 const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
@@ -33,14 +55,63 @@ const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 const cellBase = "flex items-center px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;
 const valueCellClass = `${cellBase} bg-white dark:bg-zinc-950`;
+const editableValueCellClass = `${cellBase} bg-orange-50 dark:bg-orange-950/30`;
+const blankCellClass =
+  "flex items-center px-3 py-2 text-sm border border-white bg-white dark:border-zinc-950 dark:bg-zinc-950";
 const inputClass =
-  "w-full bg-transparent text-sm text-zinc-900 outline-none dark:text-zinc-100";
+  "w-full bg-transparent text-sm text-zinc-900 outline-none disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-zinc-100 dark:disabled:text-zinc-600";
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+const PERCENT_INPUT_PATTERN = /^\d*(\.\d{0,2})?$/;
+
+function selectAllOnFocus(e: FocusEvent<HTMLInputElement>) {
+  e.target.select();
+}
+
+function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key === "Enter") {
+    e.currentTarget.blur();
+  }
+}
+
+function formatTwoDecimals(raw: string): string {
+  if (raw === "") return raw;
+  const num = Number(raw);
+  return Number.isNaN(num) ? raw : num.toFixed(2);
+}
+
+/** 선취보수(차감) = 신탁투자금액 x 선취보수율 */
+function getFrontFeeAmount(
+  trustInvestmentAmount: string,
+  frontFeeRate: string
+): number | null {
+  if (!trustInvestmentAmount || !frontFeeRate) return null;
+  const principal = Number(trustInvestmentAmount);
+  const rate = Number(frontFeeRate);
+  if (Number.isNaN(principal) || Number.isNaN(rate)) return null;
+  return Math.trunc(principal * (rate / 100));
+}
+
+function Row({
+  label,
+  children,
+  editable = false,
+  blank = false,
+}: {
+  label: string;
+  children: ReactNode;
+  editable?: boolean;
+  blank?: boolean;
+}) {
   return (
     <div className="grid grid-cols-2">
-      <div className={labelCellClass}>{label}</div>
-      <div className={valueCellClass}>{children}</div>
+      <div className={blank ? blankCellClass : labelCellClass}>{label}</div>
+      <div
+        className={
+          blank ? blankCellClass : editable ? editableValueCellClass : valueCellClass
+        }
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -76,6 +147,98 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
     val: BondLayoutInput[K]
   ) => onChange({ ...value, [key]: val });
 
+  const pricing = useMemo(
+    () =>
+      computeBondPricing({
+        maturityDate: value.maturityDate,
+        couponRate: value.couponRate,
+        couponFrequency: value.couponFrequency,
+        purchaseYield: value.purchaseYield,
+        calcBasis: value.calcBasis,
+        trustContractDate: value.trustContractDate,
+        recentCouponDate: value.recentCouponDate,
+        custodyCurrency: value.custodyCurrency,
+        purchaseFxRate: value.purchaseFxRate,
+        trustInvestmentAmount: value.trustInvestmentAmount,
+        frontFeeRate: value.frontFeeRate,
+      }),
+    [
+      value.maturityDate,
+      value.couponRate,
+      value.couponFrequency,
+      value.purchaseYield,
+      value.calcBasis,
+      value.trustContractDate,
+      value.recentCouponDate,
+      value.custodyCurrency,
+      value.purchaseFxRate,
+      value.trustInvestmentAmount,
+      value.frontFeeRate,
+    ]
+  );
+
+  const cashFlowRows = useMemo(
+    () =>
+      generateFixCashFlow({
+        maturityDate: value.maturityDate,
+        couponRate: value.couponRate,
+        couponFrequency: value.couponFrequency,
+        purchaseYield: value.purchaseYield,
+        calcBasis: value.calcBasis,
+        trustContractDate: value.trustContractDate,
+        recentCouponDate: value.recentCouponDate,
+        custodyCurrency: value.custodyCurrency,
+        purchaseFxRate: value.purchaseFxRate,
+        trustInvestmentAmount: value.trustInvestmentAmount,
+        frontFeeRate: value.frontFeeRate,
+        backFeeRate: value.backFeeRate,
+        investorType: value.investorType,
+        taxStatus: value.taxStatus,
+      }),
+    [
+      value.maturityDate,
+      value.couponRate,
+      value.couponFrequency,
+      value.purchaseYield,
+      value.calcBasis,
+      value.trustContractDate,
+      value.recentCouponDate,
+      value.custodyCurrency,
+      value.purchaseFxRate,
+      value.trustInvestmentAmount,
+      value.frontFeeRate,
+      value.backFeeRate,
+      value.investorType,
+      value.taxStatus,
+    ]
+  );
+
+  const maturitySummary = useMemo(
+    () =>
+      pricing && cashFlowRows
+        ? computeMaturitySummary(pricing, cashFlowRows, {
+            trustContractDate: value.trustContractDate,
+            maturityDate: value.maturityDate,
+            trustInvestmentAmount: value.trustInvestmentAmount,
+            backFeeRate: value.backFeeRate,
+            custodyCurrency: value.custodyCurrency,
+            maturityFxRate: value.maturityFxRate,
+            comprehensiveTaxRate: value.incomeTaxRate,
+          })
+        : null,
+    [
+      pricing,
+      cashFlowRows,
+      value.trustContractDate,
+      value.maturityDate,
+      value.trustInvestmentAmount,
+      value.backFeeRate,
+      value.custodyCurrency,
+      value.maturityFxRate,
+      value.incomeTaxRate,
+    ]
+  );
+
   const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -105,7 +268,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
       {/* 소득자구분 / 편입자산정보 업로드 */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <Row label="소득자구분">
+          <Row label="소득자구분" editable>
             <select
               className={inputClass}
               value={value.investorType}
@@ -143,41 +306,52 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
       {/* 편입자산정보 / 매수내역 / 상품수익률 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <GroupCard title="편입자산정보">
-          <Row label="종목명">
+          <Row label="종목명" editable>
             <input
               className={inputClass}
               type="text"
               placeholder="예: KORELE 7.95 04/01/2096"
               value={value.name}
               onChange={(e) => update("name", e.target.value)}
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="발행일">
+          <Row label="발행일" editable>
             <input
               className={inputClass}
               type="date"
               value={value.issueDate}
               onChange={(e) => update("issueDate", e.target.value)}
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="만기일">
+          <Row label="만기일" editable>
             <input
               className={inputClass}
               type="date"
               value={value.maturityDate}
               onChange={(e) => update("maturityDate", e.target.value)}
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="표면이율">
+          <Row label="표면이율(%)" editable>
             <input
               className={inputClass}
-              type="number"
-              step="0.0001"
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 7.95"
               value={value.couponRate}
-              onChange={(e) => update("couponRate", Number(e.target.value))}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("couponRate", e.target.value);
+                }
+              }}
+              onBlur={(e) => update("couponRate", formatTwoDecimals(e.target.value))}
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="이자지급 주기">
+          <Row label="이자지급 주기" editable>
             <select
               className={inputClass}
               value={value.couponFrequency}
@@ -192,7 +366,24 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
-          <Row label="날짜계산 기준">
+          <Row label="최근이표일" editable>
+            <input
+              className={inputClass}
+              type="date"
+              value={
+                value.recentCouponDate ||
+                getRecentCouponDate(
+                  value.maturityDate,
+                  value.couponFrequency,
+                  getSettlementDate(value.trustContractDate) ?? undefined
+                ) ||
+                ""
+              }
+              onChange={(e) => update("recentCouponDate", e.target.value)}
+              onKeyDown={commitOnEnter}
+            />
+          </Row>
+          <Row label="날짜계산 기준" editable>
             <select
               className={inputClass}
               value={value.calcBasis}
@@ -207,16 +398,35 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
-          <Row label="해외신용등급">
+          <Row label="해외신용등급" editable>
             <input
               className={inputClass}
               type="text"
               placeholder="예: 무디스: Aa2 / S&P: AA"
               value={value.creditRating}
               onChange={(e) => update("creditRating", e.target.value)}
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="거래통화">
+          <Row label="과세여부" editable>
+            <select
+              className={inputClass}
+              value={value.taxStatus}
+              onChange={(e) =>
+                update("taxStatus", e.target.value as TaxStatus)
+              }
+            >
+              {TAX_STATUS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </Row>
+          <Row label="" blank>
+            <BlankValue />
+          </Row>
+          <Row label="거래통화" editable>
             <select
               className={inputClass}
               value={value.tradeCurrency}
@@ -231,13 +441,28 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
-          <Row label="수탁통화">
+          <Row label="수탁통화" editable>
             <select
               className={inputClass}
               value={value.custodyCurrency}
-              onChange={(e) =>
-                update("custodyCurrency", e.target.value as Currency)
-              }
+              onChange={(e) => {
+                const custodyCurrency = e.target.value as Currency;
+                if (custodyCurrency === "KRW") {
+                  onChange({
+                    ...value,
+                    custodyCurrency,
+                    purchaseFxRate: "",
+                    maturityFxRate: "",
+                  });
+                } else {
+                  onChange({
+                    ...value,
+                    custodyCurrency,
+                    purchaseFxRate: "1",
+                    maturityFxRate: "1",
+                  });
+                }
+              }}
             >
               {CURRENCY_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -246,60 +471,182 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               ))}
             </select>
           </Row>
-          <Row label="매수시점환율">
-            <ComputedValue />
-          </Row>
-          <Row label="만기예상환율(예상)">
-            <ComputedValue />
-          </Row>
         </GroupCard>
 
         <GroupCard title="매수내역">
-          <Row label="신탁투자금액">
-            <BlankValue />
-          </Row>
-          <Row label="선취보수(차감)">
-            <ComputedValue />
-          </Row>
-          <Row label="매수가능금액">
-            <ComputedValue />
-          </Row>
-          <Row label="채권권면액">
-            <ComputedValue />
-          </Row>
-          <Row label="매수단가(clean)">
-            <ComputedValue />
-          </Row>
-          <Row label="매수단가(dirty)">
-            <ComputedValue />
-          </Row>
-          <Row label="매수금리(YTM)">
+          <Row label="신탁투자금액" editable>
             <input
               className={inputClass}
-              type="number"
-              step="0.0001"
+              type="text"
+              inputMode="numeric"
+              placeholder="예: 1,000,000"
+              value={
+                value.trustInvestmentAmount === ""
+                  ? ""
+                  : Number(value.trustInvestmentAmount).toLocaleString(
+                      "ko-KR"
+                    )
+              }
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/,/g, "");
+                if (/^\d*$/.test(digits)) {
+                  update("trustInvestmentAmount", digits);
+                }
+              }}
+              onKeyDown={commitOnEnter}
+            />
+          </Row>
+          <Row label="선취보수(차감)">
+            {(() => {
+              const amount = getFrontFeeAmount(
+                value.trustInvestmentAmount,
+                value.frontFeeRate
+              );
+              return amount !== null ? (
+                <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                  {amount.toLocaleString("ko-KR")}
+                </span>
+              ) : (
+                <ComputedValue />
+              );
+            })()}
+          </Row>
+          <Row label="매수가능금액">
+            {(() => {
+              const frontFee = getFrontFeeAmount(
+                value.trustInvestmentAmount,
+                value.frontFeeRate
+              );
+              if (frontFee === null) return <ComputedValue />;
+              const available = Number(value.trustInvestmentAmount) - frontFee;
+              return (
+                <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                  {available.toLocaleString("ko-KR")}
+                </span>
+              );
+            })()}
+          </Row>
+          <Row label="채권권면액">
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(pricing.faceValue)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="매수단가(clean)">
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {pricing.cleanPrice.toFixed(4)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="매수단가(dirty)">
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {pricing.dirtyPrice.toFixed(4)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="매수금리(YTM)" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 5.30"
               value={value.purchaseYield}
-              onChange={(e) => update("purchaseYield", Number(e.target.value))}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("purchaseYield", e.target.value);
+                }
+              }}
+              onBlur={(e) =>
+                update("purchaseYield", formatTwoDecimals(e.target.value))
+              }
+              onKeyDown={commitOnEnter}
             />
           </Row>
           <Row label="경과이자(100$)">
-            <ComputedValue />
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(pricing.accruedInterest)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="결제금액">
-            <ComputedValue />
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(pricing.settlementAmount)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="현금잔액">
-            <ComputedValue />
+            {pricing ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {pricing.cashBalance.toLocaleString("ko-KR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="매수시점환율" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 1449.60"
+              value={value.purchaseFxRate}
+              disabled={value.custodyCurrency !== "KRW"}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("purchaseFxRate", e.target.value);
+                }
+              }}
+              onKeyDown={commitOnEnter}
+            />
+          </Row>
+          <Row label="만기예상환율(예상)" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 1449.60"
+              value={value.maturityFxRate}
+              disabled={value.custodyCurrency !== "KRW"}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("maturityFxRate", e.target.value);
+                }
+              }}
+              onKeyDown={commitOnEnter}
+            />
           </Row>
         </GroupCard>
 
         <GroupCard title="상품수익률">
-          <Row label="신탁계약일">
+          <Row label="신탁계약일" editable>
             <input
               className={inputClass}
               type="date"
               value={value.trustContractDate}
               onChange={(e) => update("trustContractDate", e.target.value)}
+              onKeyDown={commitOnEnter}
             />
           </Row>
           <Row label="신탁만기일">
@@ -312,55 +659,130 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             )}
           </Row>
           <Row label="투자일수">
-            <ComputedValue />
+            {(() => {
+              const days = getInvestmentDays(
+                value.trustContractDate,
+                value.maturityDate
+              );
+              return days !== null ? (
+                <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                  {days.toLocaleString("ko-KR")}일
+                </span>
+              ) : (
+                <ComputedValue />
+              );
+            })()}
           </Row>
-          <Row label="선취보수율(%)">
+          <Row label="선취보수율(%)" editable>
             <input
               className={inputClass}
-              type="number"
-              step="0.01"
-              placeholder="예: 3"
-              value={value.frontFeeRate ?? ""}
-              onChange={(e) =>
-                update(
-                  "frontFeeRate",
-                  e.target.value === "" ? null : Number(e.target.value)
-                )
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 2.5"
+              value={value.frontFeeRate}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("frontFeeRate", e.target.value);
+                }
+              }}
+              onBlur={(e) =>
+                update("frontFeeRate", formatTwoDecimals(e.target.value))
               }
+              onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="후취보수율(%)">
+          <Row label="후취보수율(%)" editable>
             <input
               className={inputClass}
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               placeholder="예: 0.5"
-              value={value.backFeeRate ?? ""}
-              onChange={(e) =>
-                update(
-                  "backFeeRate",
-                  e.target.value === "" ? null : Number(e.target.value)
-                )
+              value={value.backFeeRate}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("backFeeRate", e.target.value);
+                }
+              }}
+              onKeyDown={commitOnEnter}
+              onBlur={(e) =>
+                update("backFeeRate", formatTwoDecimals(e.target.value))
               }
             />
           </Row>
           <Row label="만기시 세전금액">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(maturitySummary.preTaxMaturityAmount)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="마지막 후취보수">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(maturitySummary.lastBackFee)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="만기시 세후금액">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatAmount(maturitySummary.postTaxMaturityAmount)}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="세전수익률">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {(maturitySummary.preTaxYield * 100).toFixed(2)}%
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
           <Row label="세후수익률">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {(maturitySummary.postTaxYield * 100).toFixed(2)}%
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="종합소득세율(%)" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 15.4"
+              value={value.incomeTaxRate}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("incomeTaxRate", e.target.value);
+                }
+              }}
+              onBlur={(e) =>
+                update("incomeTaxRate", formatTwoDecimals(e.target.value))
+              }
+              onKeyDown={commitOnEnter}
+            />
           </Row>
           <Row label="은행환산수익률">
-            <ComputedValue />
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {(maturitySummary.bankEquivalentYield * 100).toFixed(2)}%
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
           </Row>
         </GroupCard>
       </div>
