@@ -33,9 +33,9 @@ function createDefaultInput(): BondLayoutInput {
     trustContractDate: todayDateString(),
     purchaseYield: "",
     trustInvestmentAmount: "",
-    frontFeeRate: "",
-    backFeeRate: "",
-    incomeTaxRate: "",
+    frontFeeRate: "0.00",
+    backFeeRate: "0.00",
+    incomeTaxRate: "15.40",
   };
 }
 
@@ -80,23 +80,40 @@ export default function Home() {
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-black">
-      <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            채권세상
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            채권정보만 입력하면 현금흐름을 보여주는 서비스
+      <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14 print:p-0">
+        <div className="mb-4 print:mb-1 flex items-center justify-between gap-4">
+          <p className="text-sm font-bold text-red-600 dark:text-red-500">
+            ※ 본 자료는 참고용 자료로만 활용될 수 있으며, 불특정 다수에게
+            제공이 금지된 사내한 자료입니다.
           </p>
+          <span className="shrink-0 rounded-md border border-red-600 px-2 py-0.5 text-sm font-bold text-red-600 dark:border-red-500 dark:text-red-500">
+            사내한
+          </span>
+        </div>
+        <p className="hidden print:mb-1 print:block text-sm">&nbsp;</p>
+        <header className="mb-8 flex items-start justify-between gap-4 print:hidden">
+          <div>
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              채권세상
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              채권정보만 입력하면 현금흐름을 보여주는 서비스
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            출력
+          </button>
         </header>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 print:gap-2">
           <BondLayoutForm value={input} onChange={setInput} />
           <CashFlowTable
             rows={cashFlowRows}
-            tradeCurrency={input.tradeCurrency}
             custodyCurrency={input.custodyCurrency}
-            name={input.name}
           />
         </div>
       </main>

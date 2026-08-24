@@ -28,7 +28,10 @@ import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { parseBondFile } from "@/lib/parseBondFile";
 
 function formatAmount(n: number): string {
-  return n.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+  return n.toLocaleString("ko-KR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 interface BondLayoutFormProps {
@@ -52,12 +55,13 @@ const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12�
 
 const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 
-const cellBase = "flex items-center px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-800";
+const cellBase = "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;
 const valueCellClass = `${cellBase} bg-white dark:bg-zinc-950`;
 const editableValueCellClass = `${cellBase} bg-orange-50 dark:bg-orange-950/30`;
+const strongValueCellClass = `${cellBase} bg-orange-300 dark:bg-orange-800/70 print:bg-white dark:print:bg-white`;
 const blankCellClass =
-  "flex items-center px-3 py-2 text-sm border border-white bg-white dark:border-zinc-950 dark:bg-zinc-950";
+  "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-white bg-white dark:border-zinc-950 dark:bg-zinc-950";
 const inputClass =
   "w-full bg-transparent text-sm text-zinc-900 outline-none disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-zinc-100 dark:disabled:text-zinc-600";
 
@@ -71,6 +75,15 @@ function commitOnEnter(e: KeyboardEvent<HTMLInputElement>) {
   if (e.key === "Enter") {
     e.currentTarget.blur();
   }
+}
+
+/** 연도가 4자리를 넘어가면 마지막 4자리만 남긴다(예: 20275 -> 0275) */
+function clampDateYear(raw: string): string {
+  const match = raw.match(/^(\d+)-(\d{2})-(\d{2})$/);
+  if (!match) return raw;
+  const [, year, month, day] = match;
+  if (year.length <= 4) return raw;
+  return `${year.slice(-4)}-${month}-${day}`;
 }
 
 function formatTwoDecimals(raw: string): string {
@@ -96,18 +109,26 @@ function Row({
   children,
   editable = false,
   blank = false,
+  strong = false,
 }: {
   label: string;
   children: ReactNode;
   editable?: boolean;
   blank?: boolean;
+  strong?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2">
       <div className={blank ? blankCellClass : labelCellClass}>{label}</div>
       <div
         className={
-          blank ? blankCellClass : editable ? editableValueCellClass : valueCellClass
+          blank
+            ? blankCellClass
+            : strong
+              ? strongValueCellClass
+              : editable
+                ? editableValueCellClass
+                : valueCellClass
         }
       >
         {children}
@@ -128,10 +149,15 @@ function BlankValue() {
   return <span>&nbsp;</span>;
 }
 
+/** 인쇄 시 select 대신 선택된 값만 텍스트로 보여준다 */
+function PrintValue({ value }: { value: string }) {
+  return <span className="hidden print:inline">{value}</span>;
+}
+
 function GroupCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col">
-      <div className="border border-b-0 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+      <div className="border border-b-0 border-zinc-200 bg-zinc-100 px-3 py-2 print:py-1 text-sm font-semibold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
         {title}
       </div>
       <div className="flex flex-col">{children}</div>
@@ -260,13 +286,24 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
-      <h2 className="mb-5 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6 print:p-2">
+      <h2 className="mb-5 text-base font-semibold text-zinc-900 dark:text-zinc-100 print:hidden">
         입력 레이아웃
       </h2>
 
+      {value.name && (
+        <>
+          <p className="hidden print:block text-[10pt]">&nbsp;</p>
+          <p className="mb-4 print:mb-0 text-center text-[18pt] print:text-[30pt] print:tracking-normal font-bold underline text-zinc-900 dark:text-zinc-100">
+            {`(${value.tradeCurrency}) ${value.name}`}
+          </p>
+          <p className="hidden print:block text-[10pt]">&nbsp;</p>
+          <p className="hidden print:block text-[10pt]">&nbsp;</p>
+        </>
+      )}
+
       {/* 소득자구분 / 편입자산정보 업로드 */}
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="mb-4 print:mb-1 grid grid-cols-1 gap-4 md:grid-cols-3 print:hidden">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
           <Row label="소득자구분" editable>
             <select
@@ -284,8 +321,8 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
             </select>
           </Row>
         </div>
-        <div className="hidden md:block" />
-        <div className="flex flex-col justify-center gap-2">
+        <div className="hidden md:block print:block" />
+        <div className="flex items-center gap-3 print:hidden">
           <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
             편입자산정보 업로드
             <input
@@ -304,7 +341,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
       </div>
 
       {/* 편입자산정보 / 매수내역 / 상품수익률 */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 print:grid-cols-3 print:gap-2">
         <GroupCard title="편입자산정보">
           <Row label="종목명" editable>
             <input
@@ -321,7 +358,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               className={inputClass}
               type="date"
               value={value.issueDate}
-              onChange={(e) => update("issueDate", e.target.value)}
+              onChange={(e) => update("issueDate", clampDateYear(e.target.value))}
               onKeyDown={commitOnEnter}
             />
           </Row>
@@ -330,7 +367,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               className={inputClass}
               type="date"
               value={value.maturityDate}
-              onChange={(e) => update("maturityDate", e.target.value)}
+              onChange={(e) => update("maturityDate", clampDateYear(e.target.value))}
               onKeyDown={commitOnEnter}
             />
           </Row>
@@ -353,7 +390,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
           </Row>
           <Row label="이자지급 주기" editable>
             <select
-              className={inputClass}
+              className={`${inputClass} print:hidden`}
               value={value.couponFrequency}
               onChange={(e) =>
                 update("couponFrequency", e.target.value as CouponFrequency)
@@ -365,6 +402,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 </option>
               ))}
             </select>
+            <PrintValue value={value.couponFrequency} />
           </Row>
           <Row label="최근이표일" editable>
             <input
@@ -379,13 +417,15 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 ) ||
                 ""
               }
-              onChange={(e) => update("recentCouponDate", e.target.value)}
+              onChange={(e) =>
+                update("recentCouponDate", clampDateYear(e.target.value))
+              }
               onKeyDown={commitOnEnter}
             />
           </Row>
           <Row label="날짜계산 기준" editable>
             <select
-              className={inputClass}
+              className={`${inputClass} print:hidden`}
               value={value.calcBasis}
               onChange={(e) =>
                 update("calcBasis", e.target.value as CalcBasis)
@@ -397,6 +437,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 </option>
               ))}
             </select>
+            <PrintValue value={value.calcBasis} />
           </Row>
           <Row label="해외신용등급" editable>
             <input
@@ -410,7 +451,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
           </Row>
           <Row label="과세여부" editable>
             <select
-              className={inputClass}
+              className={`${inputClass} print:hidden`}
               value={value.taxStatus}
               onChange={(e) =>
                 update("taxStatus", e.target.value as TaxStatus)
@@ -422,13 +463,14 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 </option>
               ))}
             </select>
+            <PrintValue value={value.taxStatus} />
           </Row>
-          <Row label="" blank>
+          <Row label=" " blank>
             <BlankValue />
           </Row>
           <Row label="거래통화" editable>
             <select
-              className={inputClass}
+              className={`${inputClass} print:hidden`}
               value={value.tradeCurrency}
               onChange={(e) =>
                 update("tradeCurrency", e.target.value as Currency)
@@ -440,10 +482,11 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 </option>
               ))}
             </select>
+            <PrintValue value={value.tradeCurrency} />
           </Row>
           <Row label="수탁통화" editable>
             <select
-              className={inputClass}
+              className={`${inputClass} print:hidden`}
               value={value.custodyCurrency}
               onChange={(e) => {
                 const custodyCurrency = e.target.value as Currency;
@@ -470,6 +513,7 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                 </option>
               ))}
             </select>
+            <PrintValue value={value.custodyCurrency} />
           </Row>
         </GroupCard>
 
@@ -554,9 +598,9 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               <ComputedValue />
             )}
           </Row>
-          <Row label="매수금리(YTM)" editable>
+          <Row label="매수금리(YTM)" strong>
             <input
-              className={inputClass}
+              className={`${inputClass} font-bold`}
               type="text"
               inputMode="decimal"
               placeholder="예: 5.30"
@@ -617,6 +661,9 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                   update("purchaseFxRate", e.target.value);
                 }
               }}
+              onBlur={(e) =>
+                update("purchaseFxRate", formatTwoDecimals(e.target.value))
+              }
               onKeyDown={commitOnEnter}
             />
           </Row>
@@ -634,6 +681,9 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
                   update("maturityFxRate", e.target.value);
                 }
               }}
+              onBlur={(e) =>
+                update("maturityFxRate", formatTwoDecimals(e.target.value))
+              }
               onKeyDown={commitOnEnter}
             />
           </Row>
@@ -645,7 +695,9 @@ export function BondLayoutForm({ value, onChange }: BondLayoutFormProps) {
               className={inputClass}
               type="date"
               value={value.trustContractDate}
-              onChange={(e) => update("trustContractDate", e.target.value)}
+              onChange={(e) =>
+                update("trustContractDate", clampDateYear(e.target.value))
+              }
               onKeyDown={commitOnEnter}
             />
           </Row>
