@@ -14,7 +14,14 @@ interface CompanyInfo {
   name: string;
 }
 
-interface BondListItem {
+const TREASURY_COMPANY: CompanyInfo = {
+  cik: "TREASURY",
+  ticker: "UST",
+  name: "미국국채 (U.S. Treasury)",
+};
+
+interface SecListItem {
+  kind: "sec";
   label: string;
   isin: string | null;
   maturityDate: string | null;
@@ -22,6 +29,27 @@ interface BondListItem {
   indexUrl: string;
   filedDate: string;
 }
+
+interface TreasuryBondItem {
+  cusip: string;
+  securityType: string;
+  term: string;
+  issueDate: string;
+  maturityDate: string;
+  couponRate: number;
+  frequency: string;
+}
+
+interface TreasuryListItem {
+  kind: "treasury";
+  label: string;
+  isin: string | null;
+  maturityDate: string | null;
+  couponRate: number | null;
+  data: TreasuryBondItem;
+}
+
+type ListItem = SecListItem | TreasuryListItem;
 
 interface BondTranche {
   label: string;
@@ -56,17 +84,25 @@ function frequencyFromMonths(months: number | null): CouponFrequency | null {
   return null;
 }
 
+function frequencyFromTreasuryLabel(label: string): number | null {
+  if (/semi-annual/i.test(label)) return 6;
+  if (/quarterly/i.test(label)) return 3;
+  if (/annual/i.test(label)) return 12;
+  return null;
+}
+
 interface UsBondSearchBoxProps {
   disabled: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
 }
 
 /**
- * SEC EDGAR(공식·자동화 허용)의 FWP(가격결정 조건표) 문서를 서버에서 파싱해
- * 미국 등록채권의 발행일/만기일/표면이율/지급주기/날짜계산기준/신용등급/거래통화를
- * 자동 반영한다. 종목검색(boerse-frankfurt)과 동일하게 회사 선택 즉시 최근 발행
- * 채권을 평면 목록으로 보여주고 텍스트로 좁힐 수 있다. 발행사·주간사마다 문서
- * 서식이 달라 100% 정확하지 않을 수 있다.
+ * SEC EDGAR(공식·자동화 허용)의 FWP(가격결정 조건표) 문서와 fiscaldata.treasury.gov
+ * (공식·무료·키 불필요) 경매 데이터를 서버에서 조회해 미국 회사채/국채의 발행일/
+ * 만기일/표면이율/지급주기/날짜계산기준/신용등급/거래통화를 자동 반영한다.
+ * 종목검색(boerse-frankfurt)과 동일하게 회사(또는 국채) 선택 즉시 최근 채권을
+ * 평면 목록으로 보여주고 텍스트로 좁힐 수 있다. 발행사·주간사마다 문서 서식이
+ * 달라 회사채는 100% 정확하지 않을 수 있다.
  */
 export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -74,7 +110,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [companiesError, setCompaniesError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<CompanyInfo | null>(null);
-  const [bonds, setBonds] = useState<BondListItem[] | null>(null);
+  const [bonds, setBonds] = useState<ListItem[] | null>(null);
   const [loadingBonds, setLoadingBonds] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,18 +170,59 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
     setBonds(null);
     setStatus(null);
     setLoadingBonds(true);
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (company.cik === TREASURY_COMPANY.cik) {
+      fetch("/api/us-treasury-list")
+        .then((res) => res.json())
+        .then((data: { bonds?: TreasuryBondItem[] }) => {
+          const all = Array.isArray(data.bonds) ? data.bonds : [];
+          const items: TreasuryListItem[] = all
+            .filter((b) => b.maturityDate >= today)
+            .map((b) => ({
+              kind: "treasury",
+              label: `${b.term} ${b.couponRate}% ${b.maturityDate.slice(0, 4)}`,
+              isin: b.cusip,
+              maturityDate: b.maturityDate,
+              couponRate: b.couponRate,
+              data: b,
+            }));
+          setBonds(items);
+        })
+        .catch(() => setStatus("국채 목록을 불러오지 못했습니다."))
+        .finally(() => setLoadingBonds(false));
+      return;
+    }
+
     fetch(`/api/us-bond-list?cik=${company.cik}`)
       .then((res) => res.json())
-      .then((data: { bonds?: BondListItem[] }) => {
-        const today = new Date().toISOString().slice(0, 10);
+      .then((data: { bonds?: Omit<SecListItem, "kind">[] }) => {
         const all = Array.isArray(data.bonds) ? data.bonds : [];
-        setBonds(all.filter((b) => !b.maturityDate || b.maturityDate >= today));
+        const items: SecListItem[] = all
+          .filter((b) => !b.maturityDate || b.maturityDate >= today)
+          .map((b) => ({ kind: "sec", ...b }));
+        setBonds(items);
       })
       .catch(() => setStatus("채권 목록을 불러오지 못했습니다."))
       .finally(() => setLoadingBonds(false));
   };
 
-  const selectBond = (bond: BondListItem) => {
+  const selectBond = (bond: ListItem) => {
+    if (bond.kind === "treasury") {
+      const tranche: BondTranche = {
+        label: bond.label,
+        maturityDate: bond.data.maturityDate,
+        couponRate: bond.data.couponRate,
+        isin: bond.data.cusip,
+        rating: "무위험(미국국채)",
+        couponFrequencyMonths: frequencyFromTreasuryLabel(bond.data.frequency),
+        settlementDate: bond.data.issueDate,
+        calcBasis: "ACT/ACT",
+      };
+      applyTranche(tranche, TREASURY_COMPANY.name, "USD");
+      return;
+    }
+
     setStatus("조회 중...");
     const params = new URLSearchParams({
       cik: selectedCompany?.cik ?? "",
@@ -230,7 +307,8 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
               {selectedCompany && (
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="truncate text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                    {selectedCompany.name} ({selectedCompany.ticker})
+                    {selectedCompany.name}
+                    {selectedCompany.cik !== TREASURY_COMPANY.cik && ` (${selectedCompany.ticker})`}
                   </span>
                   <button
                     type="button"
@@ -244,6 +322,13 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
 
               {!selectedCompany && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => selectCompany(TREASURY_COMPANY)}
+                    className="mb-2 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    🇺🇸 {TREASURY_COMPANY.name}
+                  </button>
                   <input
                     autoFocus
                     type="text"
