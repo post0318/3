@@ -8,6 +8,13 @@ import path from "node:path";
 const apiDir = path.join(process.cwd(), "src", "app", "api");
 const hiddenDir = path.join(process.cwd(), "src", "app", "_api_disabled_for_offline_build");
 const hadApiDir = existsSync(apiDir);
+const nextCacheDir = path.join(process.cwd(), ".next");
+
+// api route가 존재했던 이전 빌드(npm run dev 포함)의 타입 캐시가 남아있으면
+// 방금 숨긴 api 폴더를 참조하다 타입체크가 실패하므로 먼저 지운다.
+if (existsSync(nextCacheDir)) {
+  rmSync(nextCacheDir, { recursive: true, force: true });
+}
 
 if (hadApiDir) {
   cpSync(apiDir, hiddenDir, { recursive: true });
