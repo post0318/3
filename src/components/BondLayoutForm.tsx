@@ -29,6 +29,7 @@ import { parseBondFile } from "@/lib/parseBondFile";
 import { encodeBondLink } from "@/lib/bondLink";
 import { BondSearchBox } from "@/components/BondSearchBox";
 import { UsBondSearchBox } from "@/components/UsBondSearchBox";
+import { KoreaBondSearchBox } from "@/components/KoreaBondSearchBox";
 
 function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR", {
@@ -322,6 +323,7 @@ export function BondLayoutForm({
         </h2>
         <BondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
         <UsBondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
+        <KoreaBondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
       </div>
 
       {value.name && (
