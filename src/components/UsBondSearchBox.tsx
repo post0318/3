@@ -132,9 +132,21 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
       .finally(() => setLoadingOfferings(false));
   };
 
+  const filteredTranches = useMemo(() => {
+    if (!tranches) return [];
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return tranches;
+    return tranches.filter((t) =>
+      `${t.label} ${t.couponRate ?? ""} ${t.maturityDate ?? ""} ${t.isin ?? ""}`
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [tranches, query]);
+
   const selectOffering = (offering: OfferingSummary) => {
     if (!selectedCompany) return;
     setTranches(null);
+    setQuery("");
     setLoadingTranches(true);
     setStatus(null);
     const params = new URLSearchParams({
@@ -292,11 +304,16 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
 
               {tranches && (
                 <>
-                  <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    발행 만기별로 선택하세요.
-                  </p>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="채권명/쿠폰/만기로 좁히기 (예: 2032 또는 4.5)"
+                    className="mb-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  />
                   <ul className="max-h-56 overflow-y-auto">
-                    {tranches.map((t, i) => (
+                    {filteredTranches.map((t, i) => (
                       <li key={`${t.isin ?? i}`}>
                         <button
                           type="button"
@@ -313,6 +330,9 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
                       <li className="px-2 py-1 text-xs text-zinc-400">
                         만기가 지나지 않은 종목이 없습니다.
                       </li>
+                    )}
+                    {tranches.length > 0 && filteredTranches.length === 0 && (
+                      <li className="px-2 py-1 text-xs text-zinc-400">일치하는 종목이 없습니다.</li>
                     )}
                   </ul>
                   <button
