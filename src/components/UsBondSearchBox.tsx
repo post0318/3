@@ -14,10 +14,13 @@ interface CompanyInfo {
   name: string;
 }
 
-interface OfferingSummary {
-  accessionNumber: string;
-  filedDate: string;
+interface BondListItem {
+  label: string;
+  isin: string | null;
+  maturityDate: string | null;
+  couponRate: number | null;
   indexUrl: string;
+  filedDate: string;
 }
 
 interface BondTranche {
@@ -61,7 +64,9 @@ interface UsBondSearchBoxProps {
 /**
  * SEC EDGAR(공식·자동화 허용)의 FWP(가격결정 조건표) 문서를 서버에서 파싱해
  * 미국 등록채권의 발행일/만기일/표면이율/지급주기/날짜계산기준/신용등급/거래통화를
- * 자동 반영한다. 발행사·주간사마다 문서 서식이 달라 100% 정확하지 않을 수 있다.
+ * 자동 반영한다. 종목검색(boerse-frankfurt)과 동일하게 회사 선택 즉시 최근 발행
+ * 채권을 평면 목록으로 보여주고 텍스트로 좁힐 수 있다. 발행사·주간사마다 문서
+ * 서식이 달라 100% 정확하지 않을 수 있다.
  */
 export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -69,12 +74,8 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [companiesError, setCompaniesError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<CompanyInfo | null>(null);
-  const [offerings, setOfferings] = useState<OfferingSummary[] | null>(null);
-  const [loadingOfferings, setLoadingOfferings] = useState(false);
-  const [tranches, setTranches] = useState<BondTranche[] | null>(null);
-  const [issuer, setIssuer] = useState<string | null>(null);
-  const [currency, setCurrency] = useState<string>("USD");
-  const [loadingTranches, setLoadingTranches] = useState(false);
+  const [bonds, setBonds] = useState<BondListItem[] | null>(null);
+  const [loadingBonds, setLoadingBonds] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -116,60 +117,60 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
       .slice(0, 15);
   }, [companies, query, selectedCompany]);
 
-  const selectCompany = (company: CompanyInfo) => {
-    setSelectedCompany(company);
-    setQuery("");
-    setOfferings(null);
-    setTranches(null);
-    setStatus(null);
-    setLoadingOfferings(true);
-    fetch(`/api/us-bond-offerings?cik=${company.cik}`)
-      .then((res) => res.json())
-      .then((data: { offerings?: OfferingSummary[] }) =>
-        setOfferings(Array.isArray(data.offerings) ? data.offerings : [])
-      )
-      .catch(() => setStatus("채권 발행 이력을 불러오지 못했습니다."))
-      .finally(() => setLoadingOfferings(false));
-  };
-
-  const filteredTranches = useMemo(() => {
-    if (!tranches) return [];
+  const filteredBonds = useMemo(() => {
+    if (!bonds) return [];
     const keyword = query.trim().toLowerCase();
-    if (!keyword) return tranches;
-    return tranches.filter((t) =>
-      `${t.label} ${t.couponRate ?? ""} ${t.maturityDate ?? ""} ${t.isin ?? ""}`
+    if (!keyword) return bonds;
+    return bonds.filter((b) =>
+      `${b.label} ${b.couponRate ?? ""} ${b.maturityDate ?? ""} ${b.isin ?? ""}`
         .toLowerCase()
         .includes(keyword)
     );
-  }, [tranches, query]);
+  }, [bonds, query]);
 
-  const selectOffering = (offering: OfferingSummary) => {
-    if (!selectedCompany) return;
-    setTranches(null);
+  const selectCompany = (company: CompanyInfo) => {
+    setSelectedCompany(company);
     setQuery("");
-    setLoadingTranches(true);
+    setBonds(null);
     setStatus(null);
+    setLoadingBonds(true);
+    fetch(`/api/us-bond-list?cik=${company.cik}`)
+      .then((res) => res.json())
+      .then((data: { bonds?: BondListItem[] }) => {
+        const today = new Date().toISOString().slice(0, 10);
+        const all = Array.isArray(data.bonds) ? data.bonds : [];
+        setBonds(all.filter((b) => !b.maturityDate || b.maturityDate >= today));
+      })
+      .catch(() => setStatus("채권 목록을 불러오지 못했습니다."))
+      .finally(() => setLoadingBonds(false));
+  };
+
+  const selectBond = (bond: BondListItem) => {
+    setStatus("조회 중...");
     const params = new URLSearchParams({
-      cik: selectedCompany.cik,
-      indexUrl: offering.indexUrl,
-      filedDate: offering.filedDate,
+      cik: selectedCompany?.cik ?? "",
+      indexUrl: bond.indexUrl,
+      filedDate: bond.filedDate,
     });
     fetch(`/api/us-bond-detail?${params}`)
       .then((res) => res.json())
       .then((data: FwpDetail) => {
-        const today = new Date().toISOString().slice(0, 10);
-        const upcoming = (data.tranches ?? []).filter(
-          (t) => !t.maturityDate || t.maturityDate >= today
-        );
-        setTranches(upcoming);
-        setIssuer(data.issuer ?? selectedCompany.name);
-        setCurrency(data.currency ?? "USD");
+        const tranche =
+          data.tranches?.find((t) => t.isin === bond.isin) ?? data.tranches?.[0] ?? null;
+        if (!tranche) {
+          setStatus("상세정보를 찾지 못했습니다.");
+          return;
+        }
+        applyTranche(tranche, data.issuer, data.currency);
       })
-      .catch(() => setStatus("조건표를 불러오지 못했습니다."))
-      .finally(() => setLoadingTranches(false));
+      .catch(() => setStatus("상세정보를 불러오지 못했습니다."));
   };
 
-  const applyTranche = (tranche: BondTranche) => {
+  const applyTranche = (
+    tranche: BondTranche,
+    issuer: string | null,
+    currency: string
+  ) => {
     const fields: Partial<BondLayoutInput> = {};
     const displayIssuer = issuer ?? selectedCompany?.name ?? "";
     if (displayIssuer && tranche.couponRate !== null && tranche.maturityDate) {
@@ -198,15 +199,14 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
     setStatus(
       missing.length > 0
         ? `일부 항목을 반영했습니다. ${missing.join("/")}은(는) 자동으로 찾지 못해 직접 입력이 필요합니다.`
-        : "발행일·만기일·표면이율·지급주기·날짜계산기준·신용등급·거래통화를 모두 반영했습니다."
+        : "OK"
     );
     setOpen(false);
   };
 
   const resetCompany = () => {
     setSelectedCompany(null);
-    setOfferings(null);
-    setTranches(null);
+    setBonds(null);
     setQuery("");
   };
 
@@ -271,77 +271,45 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
                 </>
               )}
 
-              {selectedCompany && !tranches && (
+              {selectedCompany && (
                 <>
-                  {loadingOfferings && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">발행 이력 불러오는 중...</p>
+                  {loadingBonds && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">채권 목록 불러오는 중...</p>
                   )}
-                  {!loadingOfferings && offerings && (
-                    <ul className="max-h-56 overflow-y-auto">
-                      {offerings.map((o) => (
-                        <li key={o.accessionNumber}>
-                          <button
-                            type="button"
-                            onClick={() => selectOffering(o)}
-                            className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          >
-                            {o.filedDate || o.accessionNumber} 발행 조건표
-                          </button>
-                        </li>
-                      ))}
-                      {offerings.length === 0 && (
-                        <li className="px-2 py-1 text-xs text-zinc-400">
-                          최근 채권 발행(FWP) 이력이 없습니다.
-                        </li>
-                      )}
-                    </ul>
+                  {!loadingBonds && bonds && (
+                    <>
+                      <input
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="채권명/쿠폰/만기로 좁히기 (예: 2032 또는 4.5)"
+                        className="mb-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      />
+                      <ul className="max-h-56 overflow-y-auto">
+                        {filteredBonds.map((b, i) => (
+                          <li key={`${b.isin ?? i}`}>
+                            <button
+                              type="button"
+                              onClick={() => selectBond(b)}
+                              className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            >
+                              {b.label || `만기 ${b.maturityDate ?? "-"}`}
+                              {b.couponRate !== null ? ` · ${b.couponRate}%` : ""}
+                              <span className="ml-1 text-xs text-zinc-400">{b.isin}</span>
+                            </button>
+                          </li>
+                        ))}
+                        {bonds.length === 0 && (
+                          <li className="px-2 py-1 text-xs text-zinc-400">
+                            만기가 지나지 않은 최근 발행 채권이 없습니다.
+                          </li>
+                        )}
+                        {bonds.length > 0 && filteredBonds.length === 0 && (
+                          <li className="px-2 py-1 text-xs text-zinc-400">일치하는 종목이 없습니다.</li>
+                        )}
+                      </ul>
+                    </>
                   )}
-                  {loadingTranches && (
-                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">조건표 분석 중...</p>
-                  )}
-                </>
-              )}
-
-              {tranches && (
-                <>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="채권명/쿠폰/만기로 좁히기 (예: 2032 또는 4.5)"
-                    className="mb-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-                  />
-                  <ul className="max-h-56 overflow-y-auto">
-                    {filteredTranches.map((t, i) => (
-                      <li key={`${t.isin ?? i}`}>
-                        <button
-                          type="button"
-                          onClick={() => applyTranche(t)}
-                          className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          {t.label || `만기 ${t.maturityDate ?? "-"}`}
-                          {t.couponRate !== null ? ` · ${t.couponRate}%` : ""}
-                          <span className="ml-1 text-xs text-zinc-400">{t.isin}</span>
-                        </button>
-                      </li>
-                    ))}
-                    {tranches.length === 0 && (
-                      <li className="px-2 py-1 text-xs text-zinc-400">
-                        만기가 지나지 않은 종목이 없습니다.
-                      </li>
-                    )}
-                    {tranches.length > 0 && filteredTranches.length === 0 && (
-                      <li className="px-2 py-1 text-xs text-zinc-400">일치하는 종목이 없습니다.</li>
-                    )}
-                  </ul>
-                  <button
-                    type="button"
-                    onClick={() => setTranches(null)}
-                    className="mt-1 text-xs text-zinc-400 hover:underline"
-                  >
-                    ← 다른 발행 선택
-                  </button>
                 </>
               )}
             </>

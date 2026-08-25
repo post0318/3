@@ -393,6 +393,50 @@ export async function fetchFwpDetail(
   return result;
 }
 
+export interface BondListItem {
+  label: string;
+  isin: string | null;
+  maturityDate: string | null;
+  couponRate: number | null;
+  indexUrl: string;
+  filedDate: string;
+}
+
+/**
+ * 종목검색(boerse-frankfurt)처럼 회사 선택 즉시 검색 가능한 평면 목록을 만들기
+ * 위해, 최근 N건의 FWP를 미리 받아 트랜치를 하나로 합친다. 목록 단계에서는
+ * day-count 424B 폴백 조회 없이 가볍게 처리하고(느려지는 것 방지), 신용등급/
+ * 지급주기/날짜계산기준 등 나머지 값은 사용자가 실제 선택했을 때 개별 상세조회로
+ * 채운다.
+ */
+export async function getRecentBondList(
+  cik: string,
+  maxOfferings = 5
+): Promise<BondListItem[]> {
+  const offerings = (await getFwpFilings(cik)).slice(0, maxOfferings);
+  const results = await Promise.all(
+    offerings.map(async (offering) => {
+      try {
+        const docUrl = await getPrimaryDocUrl(offering.indexUrl);
+        if (!docUrl) return [];
+        const html = await fetchText(docUrl);
+        const { tranches } = parseFwp(html);
+        return tranches.map((t) => ({
+          label: t.label,
+          isin: t.isin,
+          maturityDate: t.maturityDate,
+          couponRate: t.couponRate,
+          indexUrl: offering.indexUrl,
+          filedDate: offering.filedDate,
+        }));
+      } catch {
+        return [];
+      }
+    })
+  );
+  return results.flat();
+}
+
 /** 같은 회사가 FWP와 비슷한 시점에 낸 424B(본 증권신고서)에서 day-count 관용구를 찾는다 */
 export async function findDayCountBasis(
   cik: string,
