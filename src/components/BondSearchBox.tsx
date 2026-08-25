@@ -121,9 +121,7 @@ export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
         }
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
-        setStatus(
-          "발행일·만기일·표면이율·거래통화를 반영했습니다. 지급주기·날짜계산기준·해외신용등급은 상세페이지에서 확인해 직접 입력해 주세요."
-        );
+        setStatus("OK");
         setOpen(false);
       })
       .catch(() => setStatus("상세정보를 불러오지 못했습니다."));
