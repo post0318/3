@@ -112,6 +112,7 @@ export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
       .then((res) => res.json())
       .then((data: BondDetail) => {
         const fields: Partial<BondLayoutInput> = {};
+        fields.name = bond.name;
         if (data.issueDate) fields.issueDate = data.issueDate;
         if (data.maturityDate) fields.maturityDate = data.maturityDate;
         if (typeof data.couponRate === "number") fields.couponRate = String(data.couponRate);
