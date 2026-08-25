@@ -314,9 +314,19 @@ export function BondLayoutForm({
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6 print:p-2">
-      <h2 className="mb-5 text-base font-semibold text-zinc-900 dark:text-zinc-100 print:hidden">
-        입력 레이아웃
-      </h2>
+      <div className="mb-5 flex items-center gap-3 print:hidden">
+        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          입력 레이아웃
+        </h2>
+        <a
+          href="https://www.boerse-frankfurt.de/bonds"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+        >
+          종목검색
+        </a>
+      </div>
 
       {value.name && (
         <>
