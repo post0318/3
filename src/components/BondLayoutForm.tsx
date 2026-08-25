@@ -533,9 +533,32 @@ export function BondLayoutForm({
             <select
               className={`${inputClass} print:hidden`}
               value={value.tradeCurrency}
-              onChange={(e) =>
-                update("tradeCurrency", e.target.value as Currency)
-              }
+              onChange={(e) => {
+                const tradeCurrency = e.target.value as Currency;
+                if (tradeCurrency === value.custodyCurrency) {
+                  update("tradeCurrency", tradeCurrency);
+                  return;
+                }
+                if (tradeCurrency === "KRW") {
+                  onChange({
+                    ...value,
+                    tradeCurrency,
+                    custodyCurrency: "KRW",
+                    purchaseFxRate: "",
+                    maturityFxRate: "",
+                    trustInvestmentAmount: "100000000",
+                  });
+                } else {
+                  onChange({
+                    ...value,
+                    tradeCurrency,
+                    custodyCurrency: tradeCurrency,
+                    purchaseFxRate: "1",
+                    maturityFxRate: "1",
+                    trustInvestmentAmount: "1000000",
+                  });
+                }
+              }}
             >
               {CURRENCY_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>

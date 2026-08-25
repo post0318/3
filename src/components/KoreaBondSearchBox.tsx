@@ -132,7 +132,7 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="발행회사명 입력 (예: 롯데케미칼)"
+            placeholder="발행회사명 또는 채권종류 입력 (예: 롯데케미칼, 국채, 지방채)"
             className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           />
 
