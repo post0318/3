@@ -27,6 +27,7 @@ import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
 import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { parseBondFile } from "@/lib/parseBondFile";
 import { encodeBondLink } from "@/lib/bondLink";
+import { BondSearchBox } from "@/components/BondSearchBox";
 
 function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR", {
@@ -318,14 +319,7 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        <a
-          href="https://www.boerse-frankfurt.de/bonds"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-        >
-          종목검색
-        </a>
+        <BondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
       </div>
 
       {value.name && (
