@@ -145,7 +145,11 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
     fetch(`/api/us-bond-detail?${params}`)
       .then((res) => res.json())
       .then((data: FwpDetail) => {
-        setTranches(data.tranches ?? []);
+        const today = new Date().toISOString().slice(0, 10);
+        const upcoming = (data.tranches ?? []).filter(
+          (t) => !t.maturityDate || t.maturityDate >= today
+        );
+        setTranches(upcoming);
         setIssuer(data.issuer ?? selectedCompany.name);
         setCurrency(data.currency ?? "USD");
       })
@@ -305,6 +309,11 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
                         </button>
                       </li>
                     ))}
+                    {tranches.length === 0 && (
+                      <li className="px-2 py-1 text-xs text-zinc-400">
+                        만기가 지나지 않은 종목이 없습니다.
+                      </li>
+                    )}
                   </ul>
                   <button
                     type="button"

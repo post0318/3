@@ -22,6 +22,23 @@ interface BondDetail {
 
 const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 
+/**
+ * boerse-frankfurt 검색 목록에는 만기일 필드가 없어(상세조회를 해야 알 수 있음),
+ * 종목명 끝의 "발행연도/만기연도" 표기(예: "3,85% 22/32")에서 만기연도를 추정한다.
+ * 패턴이 없으면 걸러내지 않고 그대로 남긴다(오탐으로 유효 종목을 숨기지 않기 위함).
+ */
+function approxMaturityYear(name: string): number | null {
+  const m = name.match(/(\d{2})\/(\d{2})\s*$/);
+  if (!m) return null;
+  return 2000 + parseInt(m[2], 10);
+}
+
+function isNotMatured(name: string): boolean {
+  const year = approxMaturityYear(name);
+  if (year === null) return true;
+  return year >= new Date().getFullYear();
+}
+
 interface BondSearchBoxProps {
   disabled: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
@@ -99,9 +116,10 @@ export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
     setLoadingBonds(true);
     fetch(`/api/bond-search?issuer=${encodeURIComponent(issuer)}`)
       .then((res) => res.json())
-      .then((data: { bonds?: BondSearchItem[] }) =>
-        setBonds(Array.isArray(data.bonds) ? data.bonds : [])
-      )
+      .then((data: { bonds?: BondSearchItem[] }) => {
+        const all = Array.isArray(data.bonds) ? data.bonds : [];
+        setBonds(all.filter((b) => isNotMatured(b.name)));
+      })
       .catch(() => setStatus("채권 목록을 불러오지 못했습니다."))
       .finally(() => setLoadingBonds(false));
   };
