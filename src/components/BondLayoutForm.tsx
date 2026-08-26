@@ -731,7 +731,7 @@ export function BondLayoutForm({
               onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="경과이자(100$)">
+          <Row label={value.tradeCurrency === "KRW" ? "경과이자" : "경과이자(100$)"}>
             {pricing ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatAmount(pricing.accruedInterest)}
