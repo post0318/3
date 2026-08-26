@@ -32,8 +32,9 @@ interface BrazilBondSearchBoxProps {
  * B2B 전용이라 개인/자동화 접근이 불가해, 정부 오픈데이터 CSV로 대체했다.
  * 신용등급은 개별 채권 평가 대상이 아니라 tradingeconomics.com의 브라질
  * 국가신용등급(S&P/Moody's)을 가져와 반영한다(한국채권검색의 국고채권,
- * 미국채권검색의 U.S. Treasury와 동일한 취급). 발행일은 데이터소스에 없어
- * 직접 입력이 필요하다.
+ * 미국채권검색의 U.S. Treasury와 동일한 취급). 발행일은 CSV에 없어,
+ * NTN-F가 만기 11년 전 1월 1일에 발행되는 관행(maisretorno.com 실제
+ * 발행일·Bloomberg 데이터로 확인)을 근거로 추정해 반영한다(확인 후 사용 권장).
  */
 export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -76,9 +77,13 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
   };
 
   const selectBond = (bond: BrazilBondItem) => {
-    const year = bond.maturityDate.slice(0, 4);
+    const year = Number(bond.maturityDate.slice(0, 4));
+    // NTN-F는 만기 11년 전 1월 1일에 발행되는 관행이 있다(2027→2016, 2029→2018, ...
+    // 2037→2026년 발행 - maisretorno.com 실제 발행일 및 Bloomberg 기준 확인).
+    const issueDate = `${year - 11}-01-01`;
     const fields: Partial<BondLayoutInput> = {
       name: `NTN-F ${NTNF_COUPON_RATE}% ${year}`,
+      issueDate,
       maturityDate: bond.maturityDate,
       couponRate: NTNF_COUPON_RATE,
       couponFrequency: "6개월",
@@ -88,7 +93,7 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
     };
 
     onApply(fields);
-    setStatus("일부 항목을 반영했습니다. 발행일은 자동으로 찾지 못해 직접 입력이 필요합니다.");
+    setStatus("일부 항목을 반영했습니다. 발행일은 NTN-F 발행 관행(만기 11년 전 1/1) 추정값이니 확인해 주세요.");
     setOpen(false);
 
     fetch("/api/country-rating?slug=brazil")
