@@ -24,6 +24,7 @@ const COUPON_FREQUENCY_VALUES: CouponFrequency[] = ["3개월", "6개월", "12개
 
 interface KoreaBondSearchBoxProps {
   disabled: boolean;
+  active: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
 }
 
@@ -40,7 +41,9 @@ interface KoreaBondSearchBoxProps {
  * 금융위원회_채권기본정보(data.go.kr, 원천: 한국예탁결제원) API로 국내 채권을
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
  * 자동 반영한다. 날짜계산기준은 원화채권 관행에 맞춰 종목별로 자동 반영한다
- * (국고채권=ACT/ACT, 그 외 회사채/금융채/특수채/단기채 등=ACT/365). 공공누리
+ * (국고채권=ACT/ACT, 그 외 회사채/금융채/특수채/단기채 등=ACT/365). 미국채권검색의
+ * U.S. Treasury 버튼과 동일하게, 검색창을 열면 국고채권 전용 바로가기 버튼을
+ * 최상단에 두어(클릭 시 검색어를 "국고채권"으로 채움) 별도로 구성한다. 공공누리
  * 2유형(출처표시·상업적 이용금지) —
  * 상업적 활용은 한국예탁결제원과 별도 계약이 필요하다.
  */
@@ -53,7 +56,7 @@ function seibroDetailUrl(bond: KoreaBondItem): string {
   return `https://seibro.or.kr/websquare/control.jsp?${params.toString()}`;
 }
 
-export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProps) {
+export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [bonds, setBonds] = useState<KoreaBondItem[] | null>(null);
@@ -141,6 +144,13 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
 
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 w-96 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <button
+            type="button"
+            onClick={() => setQuery("국고채권")}
+            className="mb-2 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            국고채권
+          </button>
           <input
             autoFocus
             type="text"
@@ -177,7 +187,7 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
         </div>
       )}
 
-      {ratingLink && !open && (
+      {active && ratingLink && !open && (
         <a
           href={ratingLink}
           target="_blank"

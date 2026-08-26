@@ -41,6 +41,7 @@ function isNotMatured(name: string): boolean {
 
 interface BondSearchBoxProps {
   disabled: boolean;
+  active: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
 }
 
@@ -49,7 +50,7 @@ interface BondSearchBoxProps {
  * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준/신용등급은 이 API에 값이
  * 없어 상세페이지 링크로 안내하고 직접 입력하도록 한다.
  */
-export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
+export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps) {
   const [open, setOpen] = useState(false);
   const [issuers, setIssuers] = useState<string[] | null>(null);
   const [issuersError, setIssuersError] = useState<string | null>(null);
@@ -162,7 +163,7 @@ export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
         종목검색
       </button>
 
-      {detailSlug && (
+      {active && detailSlug && (
         <a
           href={`https://www.boerse-frankfurt.de/bond/${detailSlug}`}
           target="_blank"
@@ -251,7 +252,7 @@ export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {
         </div>
       )}
 
-      {status && !open && (
+      {active && status && !open && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p>
       )}
     </div>

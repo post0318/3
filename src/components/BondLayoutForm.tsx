@@ -211,6 +211,9 @@ export function BondLayoutForm({
 }: BondLayoutFormProps) {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
+  const [activeSearchBox, setActiveSearchBox] = useState<
+    "general" | "us" | "kr" | null
+  >(null);
 
   const update = <K extends keyof BondLayoutInput>(
     key: K,
@@ -354,9 +357,30 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        <BondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
-        <UsBondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
-        <KoreaBondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
+        <BondSearchBox
+          disabled={locked}
+          active={activeSearchBox === "general"}
+          onApply={(fields) => {
+            setActiveSearchBox("general");
+            onChange(applyFieldsWithCurrencySync(value, fields));
+          }}
+        />
+        <UsBondSearchBox
+          disabled={locked}
+          active={activeSearchBox === "us"}
+          onApply={(fields) => {
+            setActiveSearchBox("us");
+            onChange(applyFieldsWithCurrencySync(value, fields));
+          }}
+        />
+        <KoreaBondSearchBox
+          disabled={locked}
+          active={activeSearchBox === "kr"}
+          onApply={(fields) => {
+            setActiveSearchBox("kr");
+            onChange(applyFieldsWithCurrencySync(value, fields));
+          }}
+        />
       </div>
 
       {value.name && (

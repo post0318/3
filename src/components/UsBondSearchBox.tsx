@@ -96,6 +96,7 @@ function frequencyFromTreasuryLabel(label: string): number | null {
 
 interface UsBondSearchBoxProps {
   disabled: boolean;
+  active: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
 }
 
@@ -109,7 +110,7 @@ interface UsBondSearchBoxProps {
  * 동일하게, 종목 선택 시 FINRA Fixed Income Data 페이지로 이동하는 신용등급
  * 확인용 참조 링크를 함께 보여준다.
  */
-export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
+export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
   const [companies, setCompanies] = useState<CompanyInfo[] | null>(null);
   const [companiesError, setCompaniesError] = useState<string | null>(null);
@@ -335,7 +336,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
                     onClick={() => selectCompany(TREASURY_COMPANY)}
                     className="mb-2 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
-                    🇺🇸 {TREASURY_COMPANY.name}
+                    {TREASURY_COMPANY.name}
                   </button>
                   <input
                     autoFocus
@@ -410,7 +411,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
         </div>
       )}
 
-      {(status || ratingLink) && !open && (
+      {active && (status || ratingLink) && !open && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {status}
           {ratingLink && (
