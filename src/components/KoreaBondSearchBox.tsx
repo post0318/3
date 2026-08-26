@@ -39,8 +39,9 @@ interface KoreaBondSearchBoxProps {
  *
  * 금융위원회_채권기본정보(data.go.kr, 원천: 한국예탁결제원) API로 국내 채권을
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
- * 자동 반영한다. 날짜계산기준은 원화채권 시장 관행(ACT/365)을 가정값으로
- * 반영한다(확인 후 사용 권장). 공공누리 2유형(출처표시·상업적 이용금지) —
+ * 자동 반영한다. 날짜계산기준은 원화채권 관행에 맞춰 종목별로 자동 반영한다
+ * (국고채권=ACT/ACT, 그 외 회사채/금융채/특수채/단기채 등=ACT/365). 공공누리
+ * 2유형(출처표시·상업적 이용금지) —
  * 상업적 활용은 한국예탁결제원과 별도 계약이 필요하다.
  */
 function seibroDetailUrl(bond: KoreaBondItem): string {
@@ -113,10 +114,12 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
       fields.tradeCurrency = bond.currency as Currency;
       isKrw = bond.currency === "KRW";
     }
+    const isTreasury = bond.name.includes("국고채권");
     if (isKrw) {
-      fields.calcBasis = "ACT/365" as CalcBasis;
+      // 국고채권(이표채)은 ACT/ACT, 그 외(회사채/금융채/특수채/단기채 등)는 ACT/365 관행을 따른다.
+      fields.calcBasis = (isTreasury ? "ACT/ACT" : "ACT/365") as CalcBasis;
     }
-    if (bond.name.includes("국고채권")) {
+    if (isTreasury) {
       fields.creditRating = "RF";
     }
 
