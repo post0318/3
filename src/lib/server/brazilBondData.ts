@@ -1,10 +1,14 @@
 import { Redis } from "@upstash/redis";
+import { after } from "next/server";
 
 const CSV_URL =
   "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv";
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+/** 이 시간 안이면 캐시를 그대로 쓴다. 지나면 "일단 옛 값을 보여주고 뒤에서 갱신"한다(아래 참고) */
+const FRESH_TTL_MS = 6 * 60 * 60 * 1000;
+/** Redis에 값을 얼마나 오래 들고 있을지. FRESH_TTL_MS보다 훨씬 길게 잡아, 접속이
+ *  뜸해도(예: 며칠간 요청 없음) 값 자체는 남아있어 최초 요청도 느려지지 않게 한다. */
+const REDIS_TTL_SECONDS = 3 * 24 * 60 * 60;
 const REDIS_KEY = "br-ntnf-v1";
-const REDIS_TTL_SECONDS = CACHE_TTL_MS / 1000;
 
 /** CSV의 "Tipo Titulo" 값. NTN-F(고정금리 반기이표채)의 현재 소매판매명이 이것이다 */
 const NTNF_TYPE_PREFIX = "Tesouro Prefixado com Juros Semestrais;";
@@ -17,9 +21,11 @@ export interface BrazilBondItem {
   sellPrice: number | null; // PU Venda Manha
 }
 
-type CachedPayload = { asOfDate: string; items: BrazilBondItem[] };
+type Payload = { asOfDate: string; items: BrazilBondItem[] };
+type CachedPayload = Payload & { fetchedAt: number };
 
-let memoryCache: { at: number; payload: CachedPayload } | null = null;
+let memoryCache: CachedPayload | null = null;
+let refreshing = false;
 
 function getRedis(): Redis | null {
   if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
@@ -43,7 +49,7 @@ function parseBrNumber(s: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-async function fetchAndParse(): Promise<CachedPayload> {
+async function fetchAndParse(): Promise<Payload> {
   const res = await fetch(CSV_URL);
   if (!res.ok) {
     throw new Error(`tesourotransparente.gov.br 요청 실패 (${res.status})`);
@@ -100,6 +106,25 @@ async function fetchAndParse(): Promise<CachedPayload> {
   return { asOfDate, items };
 }
 
+/** 백그라운드에서 최신 데이터를 받아 메모리/Redis 캐시를 모두 새로 채운다(응답을 막지 않음) */
+async function refreshInBackground(redis: Redis | null) {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const payload = await fetchAndParse();
+    const cached: CachedPayload = { ...payload, fetchedAt: Date.now() };
+    memoryCache = cached;
+    if (redis) {
+      await redis.set(REDIS_KEY, cached, { ex: REDIS_TTL_SECONDS }).catch(() => {});
+    }
+  } catch {
+    // 갱신 실패는 무시한다. 기존 캐시(오래됐어도)는 그대로 남아 다음 요청에도
+    // 계속 쓰이고, 다음 요청에서 다시 갱신을 시도한다.
+  } finally {
+    refreshing = false;
+  }
+}
+
 /**
  * 브라질 재무부(Tesouro Nacional) 공식 오픈데이터 포털 tesourotransparente.gov.br의
  * CSV(매일 갱신, 2006년부터의 전체 이력, 인증 불필요)에서 NTN-F(소매판매명
@@ -107,16 +132,24 @@ async function fetchAndParse(): Promise<CachedPayload> {
  * 골라 반환한다. 옛 JSON API(treasurybondsinfo.json)는 2025-08부터 죽었고,
  * B3 공식 API는 B2B 전용이라 개인/자동화 접근이 불가해 이 경로를 쓴다.
  *
- * 파일이 14MB대라 받는 데만 20초 안팎이 걸린다. 메모리 캐시(6시간)만으로는
- * Vercel 서버리스 콜드스타트마다(=인스턴스가 새로 뜰 때마다) 캐시가 비어
- * 매번 느려지는 문제가 있어, Upstash Redis(Marketplace 연동, KV_REST_API_*)에
- * 파싱 결과(작은 JSON, 콜드스타트와 무관하게 공유됨)를 함께 캐시해 대부분의
- * 요청은 Redis 히트로 빠르게 응답하도록 한다. Redis 미설정(로컬 개발 등)이면
- * 조용히 메모리 캐시만 쓰는 것으로 폴백한다.
+ * 파일이 14MB대라 받는 데만 20초 안팎이 걸린다. Upstash Redis(Marketplace
+ * 연동, KV_REST_API_*)에 파싱 결과(작은 JSON, 콜드스타트와 무관하게 공유됨)를
+ * 캐시해두지만, 캐시가 FRESH_TTL_MS(6시간)를 넘으면 "그 요청까지" 20초가
+ * 걸리는 문제가 있었다(브라질채권검색 목록이 뜨는 순간이 느려짐). 이제는
+ * stale-while-revalidate로 처리한다: 오래된 캐시라도 일단 그대로 즉시
+ * 반환하고, 갱신은 응답을 보낸 뒤 백그라운드(after())에서 조용히 진행해
+ * 다음 요청부터 최신값을 받는다. 사용자 입장에서 느려지는 경우는 캐시가
+ * 아예 없는 최초 1회(또는 Redis가 완전히 비어있는 상태)뿐이다.
  */
-export async function fetchLatestNtnF(): Promise<CachedPayload> {
-  if (memoryCache && Date.now() - memoryCache.at < CACHE_TTL_MS) {
-    return memoryCache.payload;
+export async function fetchLatestNtnF(): Promise<Payload> {
+  const now = Date.now();
+
+  if (memoryCache) {
+    if (now - memoryCache.fetchedAt < FRESH_TTL_MS) {
+      return memoryCache;
+    }
+    after(() => refreshInBackground(getRedis()));
+    return memoryCache;
   }
 
   const redis = getRedis();
@@ -124,7 +157,10 @@ export async function fetchLatestNtnF(): Promise<CachedPayload> {
     try {
       const cached = await redis.get<CachedPayload>(REDIS_KEY);
       if (cached) {
-        memoryCache = { at: Date.now(), payload: cached };
+        memoryCache = cached;
+        if (now - cached.fetchedAt >= FRESH_TTL_MS) {
+          after(() => refreshInBackground(redis));
+        }
         return cached;
       }
     } catch {
@@ -132,12 +168,15 @@ export async function fetchLatestNtnF(): Promise<CachedPayload> {
     }
   }
 
+  // 캐시가 전혀 없는 상태(최초 요청 또는 Redis 미설정/완전 비어있음)라
+  // 어쩔 수 없이 여기서만 동기적으로 원본을 받는다.
   const payload = await fetchAndParse();
-  memoryCache = { at: Date.now(), payload };
+  const cached: CachedPayload = { ...payload, fetchedAt: now };
+  memoryCache = cached;
 
   if (redis) {
-    redis.set(REDIS_KEY, payload, { ex: REDIS_TTL_SECONDS }).catch(() => {});
+    redis.set(REDIS_KEY, cached, { ex: REDIS_TTL_SECONDS }).catch(() => {});
   }
 
-  return payload;
+  return cached;
 }
