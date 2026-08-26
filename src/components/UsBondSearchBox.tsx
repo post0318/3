@@ -108,7 +108,12 @@ interface UsBondSearchBoxProps {
  * 평면 목록으로 보여주고 텍스트로 좁힐 수 있다. 발행사·주간사마다 문서 서식이
  * 달라 회사채는 100% 정확하지 않을 수 있다. 한국채권검색의 SEIBRO 링크와
  * 동일하게, 종목 선택 시 FINRA Fixed Income Data 페이지로 이동하는 신용등급
- * 확인용 참조 링크를 함께 보여준다.
+ * 확인용 참조 링크를 함께 보여준다(단, 미국국채는 아래처럼 신용등급이 이미
+ * 확정 반영되므로 링크를 보여주지 않는다). 미국국채는 개별 신용평가 대상이
+ * 아니라 tradingeconomics.com/country-list/rating에서 가져온 미국 국가신용
+ * 등급(S&P/Moody's/DBRS)을 신용등급으로 자동 반영한다(한국채권검색의
+ * 국고채권과 동일한 취급, 조회 지연에 대비해 우선 "RF"를 반영해두고 성공 시
+ * 실제 등급으로 갱신).
  */
 export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -227,6 +232,12 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
         calcBasis: "ACT/ACT",
       };
       applyTranche(tranche, TREASURY_COMPANY.name, "USD", true);
+      fetch("/api/country-rating?slug=united-states")
+        .then((res) => res.json())
+        .then((data: { rating?: string | null }) => {
+          if (data.rating) onApply({ creditRating: data.rating });
+        })
+        .catch(() => {});
       return;
     }
 
