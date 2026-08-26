@@ -17,7 +17,7 @@ interface CompanyInfo {
 const TREASURY_COMPANY: CompanyInfo = {
   cik: "TREASURY",
   ticker: "UST",
-  name: "미국국채 (U.S. Treasury)",
+  name: "U.S. Treasury",
 };
 
 interface SecListItem {
