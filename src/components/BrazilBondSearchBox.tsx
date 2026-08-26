@@ -103,6 +103,7 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
       couponFrequency: "6개월",
       calcBasis: "Business/252" as CalcBasis,
       tradeCurrency: "BRL" as Currency,
+      custodyCurrency: "KRW" as Currency,
       creditRating: "RF",
       taxStatus: "비과세" as TaxStatus,
     };

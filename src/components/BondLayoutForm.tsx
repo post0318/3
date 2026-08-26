@@ -70,16 +70,20 @@ function applyFieldsWithCurrencySync(
   if (!tradeCurrency) {
     return { ...value, ...fields };
   }
-  if (tradeCurrency === value.custodyCurrency) {
-    return { ...value, ...fields, purchaseFxRate: "1", maturityFxRate: "1" };
+  // 검색 쪽에서 수탁통화를 명시했으면(예: 브라질채권검색은 거래통화 BRL,
+  // 수탁통화 KRW가 기본값) 그 값을 그대로 쓰고, 명시하지 않았으면 기존처럼
+  // 거래통화와 같은 통화로 자동 연동한다.
+  const custodyCurrency = fields.custodyCurrency ?? tradeCurrency;
+  if (tradeCurrency === custodyCurrency) {
+    return { ...value, ...fields, custodyCurrency, purchaseFxRate: "1", maturityFxRate: "1" };
   }
   return {
     ...value,
     ...fields,
-    custodyCurrency: tradeCurrency,
-    purchaseFxRate: "1",
-    maturityFxRate: "1",
-    trustInvestmentAmount: tradeCurrency === "KRW" ? "100000000" : "1000000",
+    custodyCurrency,
+    purchaseFxRate: "",
+    maturityFxRate: "",
+    trustInvestmentAmount: custodyCurrency === "KRW" ? "100000000" : "1000000",
   };
 }
 
