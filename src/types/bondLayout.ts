@@ -3,13 +3,14 @@ export type CalcBasis =
   | "ACT/ACT"
   | "ACT/360"
   | "ACT/365"
-  | "유럽 30/360";
+  | "유럽 30/360"
+  | "Business/252";
 
 export type InvestorType = "개인" | "일반법인" | "금융법인";
 
 export type CouponFrequency = "3개월" | "6개월" | "12개월";
 
-export type Currency = "USD" | "EUR" | "CNY" | "JPY" | "KRW";
+export type Currency = "USD" | "EUR" | "CNY" | "JPY" | "KRW" | "BRL";
 
 export type TaxStatus = "일반과세" | "비과세(농특세)" | "비과세";
 

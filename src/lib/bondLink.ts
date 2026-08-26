@@ -39,6 +39,7 @@ const CALC_BASIS_TO_CODE: Record<CalcBasis, number> = {
   "ACT/360": 3,
   "ACT/365": 4,
   "유럽 30/360": 5,
+  "Business/252": 6,
 };
 const CALC_BASIS_BY_CODE: Record<number, CalcBasis> = {
   1: "미국 30/360",
@@ -46,6 +47,7 @@ const CALC_BASIS_BY_CODE: Record<number, CalcBasis> = {
   3: "ACT/360",
   4: "ACT/365",
   5: "유럽 30/360",
+  6: "Business/252",
 };
 
 const CURRENCY_TO_CODE: Record<Currency, number> = {
@@ -54,6 +56,7 @@ const CURRENCY_TO_CODE: Record<Currency, number> = {
   CNY: 3,
   JPY: 4,
   KRW: 0,
+  BRL: 5,
 };
 const CURRENCY_BY_CODE: Record<number, Currency> = {
   1: "USD",
@@ -61,6 +64,7 @@ const CURRENCY_BY_CODE: Record<number, Currency> = {
   3: "CNY",
   4: "JPY",
   0: "KRW",
+  5: "BRL",
 };
 
 const INVESTOR_TYPE_TO_CODE: Record<InvestorType, number> = {

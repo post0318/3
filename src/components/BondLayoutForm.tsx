@@ -32,6 +32,7 @@ import { encodeBondLink } from "@/lib/bondLink";
 import { BondSearchBox } from "@/components/BondSearchBox";
 import { UsBondSearchBox } from "@/components/UsBondSearchBox";
 import { KoreaBondSearchBox } from "@/components/KoreaBondSearchBox";
+import { BrazilBondSearchBox } from "@/components/BrazilBondSearchBox";
 
 function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR", {
@@ -86,6 +87,7 @@ const CALC_BASIS_OPTIONS: CalcBasis[] = [
   "ACT/360",
   "ACT/365",
   "유럽 30/360",
+  "Business/252",
 ];
 
 const INVESTOR_TYPE_OPTIONS: InvestorType[] = ["개인", "일반법인", "금융법인"];
@@ -94,7 +96,7 @@ const TAX_STATUS_OPTIONS: TaxStatus[] = ["일반과세", "비과세(농특세)",
 
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
-const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
+const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
 
 const cellBase = "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;
@@ -216,7 +218,7 @@ export function BondLayoutForm({
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
   const [activeSearchBox, setActiveSearchBox] = useState<
-    "general" | "us" | "kr" | null
+    "general" | "us" | "kr" | "br" | null
   >(null);
 
   const update = <K extends keyof BondLayoutInput>(
@@ -382,6 +384,14 @@ export function BondLayoutForm({
           active={activeSearchBox === "kr"}
           onApply={(fields) => {
             setActiveSearchBox("kr");
+            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
+          }}
+        />
+        <BrazilBondSearchBox
+          disabled={locked}
+          active={activeSearchBox === "br"}
+          onApply={(fields) => {
+            setActiveSearchBox("br");
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />

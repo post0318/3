@@ -4,6 +4,7 @@ import {
   getCouponPeriod,
   getSettlementDate,
 } from "@/lib/couponSchedule";
+import { brazilBusinessDaysBetween } from "@/lib/brazilCalendar";
 
 export const BASIS_INDEX: Record<CalcBasis, number> = {
   "미국 30/360": 0,
@@ -11,6 +12,7 @@ export const BASIS_INDEX: Record<CalcBasis, number> = {
   "ACT/360": 2,
   "ACT/365": 3,
   "유럽 30/360": 4,
+  "Business/252": 5,
 };
 
 function actualDays(start: Date, end: Date): number {
@@ -80,7 +82,7 @@ function yearFracActAct(start: Date, end: Date): number {
   return sign * sum;
 }
 
-/** YEARFRAC(start, end, basis) 근사 구현. basis: 0=미국30/360, 1=ACT/ACT, 2=ACT/360, 3=ACT/365, 4=유럽30/360 */
+/** YEARFRAC(start, end, basis) 근사 구현. basis: 0=미국30/360, 1=ACT/ACT, 2=ACT/360, 3=ACT/365, 4=유럽30/360, 5=Business/252(브라질) */
 export function yearFrac(start: Date, end: Date, basis: number): number {
   switch (basis) {
     case 0:
@@ -91,6 +93,8 @@ export function yearFrac(start: Date, end: Date, basis: number): number {
       return actualDays(start, end) / 365;
     case 4:
       return days360Eu(start, end) / 360;
+    case 5:
+      return brazilBusinessDaysBetween(start, end) / 252;
     case 1:
     default:
       return yearFracActAct(start, end);

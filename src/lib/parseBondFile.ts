@@ -42,7 +42,7 @@ const LABEL_TO_FIELD: Record<string, UploadableField> = {
   수탁통화: "custodyCurrency",
 };
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
 
 const CALC_BASIS_VALUES: CalcBasis[] = [
   "미국 30/360",
@@ -50,6 +50,7 @@ const CALC_BASIS_VALUES: CalcBasis[] = [
   "ACT/360",
   "ACT/365",
   "유럽 30/360",
+  "Business/252",
 ];
 
 const TAX_STATUS_VALUES: TaxStatus[] = ["일반과세", "비과세(농특세)", "비과세"];
