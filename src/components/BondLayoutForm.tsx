@@ -2,9 +2,11 @@
 
 import {
   ChangeEvent,
+  Dispatch,
   FocusEvent,
   KeyboardEvent,
   ReactNode,
+  SetStateAction,
   useMemo,
   useState,
 } from "react";
@@ -72,7 +74,7 @@ function applyFieldsWithCurrencySync(
 
 interface BondLayoutFormProps {
   value: BondLayoutInput;
-  onChange: (value: BondLayoutInput) => void;
+  onChange: Dispatch<SetStateAction<BondLayoutInput>>;
   locked: boolean;
   onLockedChange: (locked: boolean) => void;
 }
@@ -362,7 +364,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "general"}
           onApply={(fields) => {
             setActiveSearchBox("general");
-            onChange(applyFieldsWithCurrencySync(value, fields));
+            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
         <UsBondSearchBox
@@ -370,7 +372,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "us"}
           onApply={(fields) => {
             setActiveSearchBox("us");
-            onChange(applyFieldsWithCurrencySync(value, fields));
+            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
         <KoreaBondSearchBox
@@ -378,7 +380,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "kr"}
           onApply={(fields) => {
             setActiveSearchBox("kr");
-            onChange(applyFieldsWithCurrencySync(value, fields));
+            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
       </div>
