@@ -45,26 +45,20 @@ function formatSettlementAmount(n: number, isKrw: boolean): string {
 
 /**
  * 종목검색 결과를 반영할 때 거래통화가 함께 바뀌면 수탁통화도 기본으로
- * 따라가도록 한다(거래통화 우선, 동일 통화가 기본값). 거래통화 셀렉트를
- * 수동으로 바꿀 때의 동작과 동일하다.
+ * 따라가도록 한다(거래통화 우선, 동일 통화가 기본값). 거래통화-수탁통화가
+ * 같으면 환율은 1로 고정, 다르면 사용자가 직접 입력해야 하므로 비워둔다.
+ * 거래통화 셀렉트를 수동으로 바꿀 때의 동작과 동일하다.
  */
 function applyFieldsWithCurrencySync(
   value: BondLayoutInput,
   fields: Partial<BondLayoutInput>
 ): BondLayoutInput {
   const tradeCurrency = fields.tradeCurrency;
-  if (!tradeCurrency || tradeCurrency === value.custodyCurrency) {
+  if (!tradeCurrency) {
     return { ...value, ...fields };
   }
-  if (tradeCurrency === "KRW") {
-    return {
-      ...value,
-      ...fields,
-      custodyCurrency: "KRW",
-      purchaseFxRate: "",
-      maturityFxRate: "",
-      trustInvestmentAmount: "100000000",
-    };
+  if (tradeCurrency === value.custodyCurrency) {
+    return { ...value, ...fields, purchaseFxRate: "1", maturityFxRate: "1" };
   }
   return {
     ...value,
@@ -72,7 +66,7 @@ function applyFieldsWithCurrencySync(
     custodyCurrency: tradeCurrency,
     purchaseFxRate: "1",
     maturityFxRate: "1",
-    trustInvestmentAmount: "1000000",
+    trustInvestmentAmount: tradeCurrency === "KRW" ? "100000000" : "1000000",
   };
 }
 
@@ -233,6 +227,7 @@ export function BondLayoutForm({
         calcBasis: value.calcBasis,
         trustContractDate: value.trustContractDate,
         recentCouponDate: value.recentCouponDate,
+        tradeCurrency: value.tradeCurrency,
         custodyCurrency: value.custodyCurrency,
         purchaseFxRate: value.purchaseFxRate,
         trustInvestmentAmount: value.trustInvestmentAmount,
@@ -246,6 +241,7 @@ export function BondLayoutForm({
       value.calcBasis,
       value.trustContractDate,
       value.recentCouponDate,
+      value.tradeCurrency,
       value.custodyCurrency,
       value.purchaseFxRate,
       value.trustInvestmentAmount,
@@ -263,6 +259,7 @@ export function BondLayoutForm({
         calcBasis: value.calcBasis,
         trustContractDate: value.trustContractDate,
         recentCouponDate: value.recentCouponDate,
+        tradeCurrency: value.tradeCurrency,
         custodyCurrency: value.custodyCurrency,
         purchaseFxRate: value.purchaseFxRate,
         maturityFxRate: value.maturityFxRate,
@@ -280,6 +277,7 @@ export function BondLayoutForm({
       value.calcBasis,
       value.trustContractDate,
       value.recentCouponDate,
+      value.tradeCurrency,
       value.custodyCurrency,
       value.purchaseFxRate,
       value.maturityFxRate,
@@ -299,6 +297,7 @@ export function BondLayoutForm({
             maturityDate: value.maturityDate,
             trustInvestmentAmount: value.trustInvestmentAmount,
             backFeeRate: value.backFeeRate,
+            tradeCurrency: value.tradeCurrency,
             custodyCurrency: value.custodyCurrency,
             maturityFxRate: value.maturityFxRate,
             comprehensiveTaxRate: value.incomeTaxRate,
@@ -311,6 +310,7 @@ export function BondLayoutForm({
       value.maturityDate,
       value.trustInvestmentAmount,
       value.backFeeRate,
+      value.tradeCurrency,
       value.custodyCurrency,
       value.maturityFxRate,
       value.incomeTaxRate,
@@ -569,28 +569,23 @@ export function BondLayoutForm({
               onChange={(e) => {
                 const tradeCurrency = e.target.value as Currency;
                 if (tradeCurrency === value.custodyCurrency) {
-                  update("tradeCurrency", tradeCurrency);
-                  return;
-                }
-                if (tradeCurrency === "KRW") {
                   onChange({
                     ...value,
                     tradeCurrency,
-                    custodyCurrency: "KRW",
-                    purchaseFxRate: "",
-                    maturityFxRate: "",
-                    trustInvestmentAmount: "100000000",
-                  });
-                } else {
-                  onChange({
-                    ...value,
-                    tradeCurrency,
-                    custodyCurrency: tradeCurrency,
                     purchaseFxRate: "1",
                     maturityFxRate: "1",
-                    trustInvestmentAmount: "1000000",
                   });
+                  return;
                 }
+                onChange({
+                  ...value,
+                  tradeCurrency,
+                  custodyCurrency: tradeCurrency,
+                  purchaseFxRate: "1",
+                  maturityFxRate: "1",
+                  trustInvestmentAmount:
+                    tradeCurrency === "KRW" ? "100000000" : "1000000",
+                });
               }}
             >
               {CURRENCY_OPTIONS.map((opt) => (
@@ -607,23 +602,23 @@ export function BondLayoutForm({
               value={value.custodyCurrency}
               onChange={(e) => {
                 const custodyCurrency = e.target.value as Currency;
-                if (custodyCurrency === "KRW") {
-                  onChange({
-                    ...value,
-                    custodyCurrency,
-                    purchaseFxRate: "",
-                    maturityFxRate: "",
-                    trustInvestmentAmount: "100000000",
-                  });
-                } else {
+                if (custodyCurrency === value.tradeCurrency) {
                   onChange({
                     ...value,
                     custodyCurrency,
                     purchaseFxRate: "1",
                     maturityFxRate: "1",
-                    trustInvestmentAmount: "1000000",
                   });
+                  return;
                 }
+                onChange({
+                  ...value,
+                  custodyCurrency,
+                  purchaseFxRate: "",
+                  maturityFxRate: "",
+                  trustInvestmentAmount:
+                    custodyCurrency === "KRW" ? "100000000" : "1000000",
+                });
               }}
             >
               {CURRENCY_OPTIONS.map((opt) => (
@@ -776,7 +771,7 @@ export function BondLayoutForm({
               inputMode="decimal"
               placeholder="예: 1449.60"
               value={value.purchaseFxRate}
-              disabled={value.custodyCurrency !== "KRW"}
+              disabled={value.custodyCurrency === value.tradeCurrency}
               onFocus={selectAllOnFocus}
               onChange={(e) => {
                 if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
@@ -785,7 +780,7 @@ export function BondLayoutForm({
               }}
               onBlur={(e) => {
                 const formatted = formatTwoDecimals(e.target.value);
-                if (value.custodyCurrency === "KRW") {
+                if (value.custodyCurrency !== value.tradeCurrency) {
                   onChange({
                     ...value,
                     purchaseFxRate: formatted,
@@ -805,7 +800,7 @@ export function BondLayoutForm({
               inputMode="decimal"
               placeholder="예: 1449.60"
               value={value.maturityFxRate}
-              disabled={value.custodyCurrency !== "KRW"}
+              disabled={value.custodyCurrency === value.tradeCurrency}
               onFocus={selectAllOnFocus}
               onChange={(e) => {
                 if (PERCENT_INPUT_PATTERN.test(e.target.value)) {

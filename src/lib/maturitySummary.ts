@@ -10,6 +10,7 @@ export interface MaturitySummaryInputs {
   maturityDate: string;
   trustInvestmentAmount: string;
   backFeeRate: string;
+  tradeCurrency: string;
   custodyCurrency: string;
   maturityFxRate: string;
   comprehensiveTaxRate: string;
@@ -48,9 +49,9 @@ export function computeMaturitySummary(
     return null;
   }
 
-  const isKrw = input.custodyCurrency === "KRW";
-  const fx = isKrw ? Number(input.maturityFxRate) : 1;
-  if (isKrw && (!fx || Number.isNaN(fx) || fx <= 0)) return null;
+  const needsFx = input.tradeCurrency !== input.custodyCurrency;
+  const fx = needsFx ? Number(input.maturityFxRate) : 1;
+  if (needsFx && (!fx || Number.isNaN(fx) || fx <= 0)) return null;
 
   const totalInterest = rows.reduce((sum, row) => sum + row.interest, 0);
   const totalPrincipal = rows.reduce((sum, row) => sum + row.principal, 0);

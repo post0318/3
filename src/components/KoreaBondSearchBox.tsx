@@ -33,7 +33,9 @@ interface KoreaBondSearchBoxProps {
  * 흉내내야 하는데, 자동화된 반복 호출은 곧바로 차단당해(서버오류3) 배포
  * 환경에서 신뢰할 수 없었다. 그래서 신용등급은 자동 반영하지 않고, 종목
  * 선택 시 해당 ISIN의 SEIBRO 상세페이지로 바로 이동하는 참조 링크만 제공해
- * 사용자가 직접 확인 후 입력하도록 한다.
+ * 사용자가 직접 확인 후 입력하도록 한다. 다만 국고채권은 신용평가 대상이
+ * 아닌 무위험자산이라 신용등급을 "RF"로 자동 반영한다(미국채권검색에서
+ * 미국국채를 무위험으로 자동 반영하는 것과 동일한 취급).
  *
  * 금융위원회_채권기본정보(data.go.kr, 원천: 한국예탁결제원) API로 국내 채권을
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
@@ -113,6 +115,9 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
     }
     if (isKrw) {
       fields.calcBasis = "ACT/365" as CalcBasis;
+    }
+    if (bond.name.includes("국고채권")) {
+      fields.creditRating = "RF";
     }
 
     onApply(fields);

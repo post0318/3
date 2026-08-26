@@ -108,8 +108,9 @@ export function roundUp(value: number, digits: number): number {
 }
 
 /**
- * 채권 매수단가(clean, per 100 face). 원본 fix.xlsx의 PRICE(...) 호출과 동일하게
- * day-count basis는 지정하지 않은 것으로 간주하여 미국 30/360으로 고정 계산한다.
+ * 채권 매수단가(clean, per `redemption` face — 국내 원화채권은 10,000, 그 외는
+ * 국제 관행대로 100). 원본 fix.xlsx의 PRICE(...) 호출과 동일하게 day-count
+ * basis는 지정하지 않은 것으로 간주하여 미국 30/360으로 고정 계산한다.
  */
 export function computeCleanPrice(
   settlement: Date,
@@ -130,7 +131,7 @@ export function computeCleanPrice(
   const a = days360Us(previousCouponDate, settlement);
   if (e === 0) return null;
 
-  const coupon = (100 * annualRate) / f;
+  const coupon = (redemption * annualRate) / f;
   const yieldPerPeriod = annualYield / f;
   const n = periodsRemaining;
 
@@ -161,6 +162,7 @@ export interface BondPricingInputs {
   calcBasis: CalcBasis;
   trustContractDate: string;
   recentCouponDate: string;
+  tradeCurrency: string;
   custodyCurrency: string;
   purchaseFxRate: string;
   trustInvestmentAmount: string;
@@ -204,12 +206,15 @@ export function computeBondPricing(
   const settlement = getSettlementDate(input.trustContractDate);
   if (!settlement) return null;
 
+  // 국내 원화채권은 액면 10,000원당 가격으로, 그 외에는 국제 관행대로 액면 100당 가격으로 계산한다.
+  const redemptionBasis = input.tradeCurrency === "KRW" ? 10000 : 100;
+
   const cleanRaw = computeCleanPrice(
     settlement,
     maturity,
     rate / 100,
     yld / 100,
-    100,
+    redemptionBasis,
     input.couponFrequency
   );
   if (cleanRaw === null) return null;
@@ -222,22 +227,25 @@ export function computeBondPricing(
 
   const basis = BASIS_INDEX[input.calcBasis];
   const accrualFrac = yearFrac(recentCoupon, settlement, basis);
-  const dirtyPrice = roundUp(cleanPrice + 100 * (rate / 100) * accrualFrac, 4);
+  const dirtyPrice = roundUp(
+    cleanPrice + redemptionBasis * (rate / 100) * accrualFrac,
+    4
+  );
 
-  const isKrw = input.custodyCurrency === "KRW";
-  const fxRate = isKrw ? Number(input.purchaseFxRate) : 1;
-  if (isKrw && (!fxRate || Number.isNaN(fxRate) || fxRate <= 0)) return null;
+  const needsFx = input.tradeCurrency !== input.custodyCurrency;
+  const fxRate = needsFx ? Number(input.purchaseFxRate) : 1;
+  if (needsFx && (!fxRate || Number.isNaN(fxRate) || fxRate <= 0)) return null;
 
   const frontFeeAmount = Math.trunc(principal * (frontFeeRate / 100));
   const availableAmount = principal - frontFeeAmount;
 
   const faceValue = roundDown(
-    (availableAmount / fxRate / dirtyPrice) * 100,
+    (availableAmount / fxRate / dirtyPrice) * redemptionBasis,
     -3
   );
 
   const accruedInterest = faceValue * (rate / 100) * accrualFrac;
-  const settlementAmount = (faceValue * dirtyPrice) / 100 * fxRate;
+  const settlementAmount = (faceValue * dirtyPrice) / redemptionBasis * fxRate;
   const cashBalance = roundDown(principal - frontFeeAmount - settlementAmount, 2);
 
   return {

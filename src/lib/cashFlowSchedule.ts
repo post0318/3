@@ -28,6 +28,7 @@ export interface CashFlowScheduleInputs {
   calcBasis: CalcBasis;
   trustContractDate: string;
   recentCouponDate: string;
+  tradeCurrency: Currency;
   custodyCurrency: Currency;
   purchaseFxRate: string;
   maturityFxRate: string;
@@ -59,9 +60,9 @@ export function generateFixCashFlow(
   const backFeeRate = Number(input.backFeeRate);
   if (Number.isNaN(backFeeRate)) return null;
 
-  const isKrw = input.custodyCurrency === "KRW";
-  const maturityFxRate = isKrw ? Number(input.maturityFxRate) : 1;
-  if (isKrw && (!maturityFxRate || Number.isNaN(maturityFxRate) || maturityFxRate <= 0)) {
+  const needsFx = input.tradeCurrency !== input.custodyCurrency;
+  const maturityFxRate = needsFx ? Number(input.maturityFxRate) : 1;
+  if (needsFx && (!maturityFxRate || Number.isNaN(maturityFxRate) || maturityFxRate <= 0)) {
     return null;
   }
   const months = FREQUENCY_MONTHS[input.couponFrequency];
