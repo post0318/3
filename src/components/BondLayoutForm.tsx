@@ -374,12 +374,15 @@ export function BondLayoutForm({
           입력 레이아웃
         </h2>
         {/* 업로드/잠금 상태에서도 검색창은 모두 계속 열려 있어야 다른 종목을
-            검색해 새로 반영할 수 있다(편입자산정보 등 직접 입력 필드만 잠금 적용). */}
+            검색해 새로 반영할 수 있다(편입자산정보 등 직접 입력 필드만 잠금 적용).
+            검색으로 새 종목을 반영하면 업로드로 걸린 잠금은 풀어 직접 입력이
+            가능하게 하고, 다시 업로드하면 handleUpload에서 다시 잠근다. */}
         <BondSearchBox
           disabled={false}
           active={activeSearchBox === "general"}
           onApply={(fields) => {
             setActiveSearchBox("general");
+            onLockedChange(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -388,6 +391,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "us"}
           onApply={(fields) => {
             setActiveSearchBox("us");
+            onLockedChange(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -396,6 +400,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "kr"}
           onApply={(fields) => {
             setActiveSearchBox("kr");
+            onLockedChange(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -404,6 +409,7 @@ export function BondLayoutForm({
           active={activeSearchBox === "br"}
           onApply={(fields) => {
             setActiveSearchBox("br");
+            onLockedChange(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
