@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BondLayoutInput, Currency } from "@/types/bondLayout";
+import { COUNTRY_ISSUER_ALIASES } from "@/lib/countryIssuerAliases";
 
 interface BondSearchItem {
   isin: string;
@@ -48,7 +49,11 @@ interface BondSearchBoxProps {
 /**
  * boerse-frankfurt.de 비공식 API로 발행자→채권→상세정보(발행일/만기일/표면이율/거래통화)를
  * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준/신용등급은 이 API에 값이
- * 없어 상세페이지 링크로 안내하고 직접 입력하도록 한다.
+ * 없어 상세페이지 링크로 안내하고 직접 입력하도록 한다. 발행자 목록은 회사명은
+ * 대부분 영문이지만 국가(주권) 발행자명은 lang=en으로 바꿔도 독일어로만 내려와
+ * (확인됨) 한국 사용자가 "Brazil"처럼 영어로 검색하면 매칭되지 않는다.
+ * countryIssuerAliases.ts에 독일어 국가명↔영어 별칭을 하드코딩해두고 함께
+ * 매칭한다.
  */
 export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -97,7 +102,13 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
     if (!issuers || selectedIssuer) return [];
     const keyword = query.trim().toLowerCase();
     if (!keyword) return [];
-    return issuers.filter((i) => i.toLowerCase().includes(keyword)).slice(0, 15);
+    return issuers
+      .filter((i) => {
+        if (i.toLowerCase().includes(keyword)) return true;
+        const aliases = COUNTRY_ISSUER_ALIASES[i];
+        return aliases ? aliases.some((alias) => alias.includes(keyword)) : false;
+      })
+      .slice(0, 15);
   }, [issuers, query, selectedIssuer]);
 
   const filteredBonds = useMemo(() => {
