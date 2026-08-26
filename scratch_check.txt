@@ -1,4 +1,0 @@
-B16: '과세유형' fmt=mm-dd-yy
-C16: '농특세형(0%+1.4%/2.8%)' fmt=#,##0_ 
-B17: '신탁만기 리드타임(일)' fmt=General
-C17: datetime.datetime(1900, 1, 11, 0, 0) fmt=mm-dd-yy
