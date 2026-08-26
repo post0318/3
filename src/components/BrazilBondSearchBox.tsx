@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BondLayoutInput, CalcBasis, Currency } from "@/types/bondLayout";
 
 interface BrazilBondItem {
@@ -36,14 +36,25 @@ interface BrazilBondSearchBoxProps {
  * NTN-F가 만기 11년 전 1월 1일에 발행되는 관행(maisretorno.com 실제
  * 발행일·Bloomberg 데이터로 확인)을 근거로 추정해 반영한다(확인 후 사용 권장).
  */
-export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSearchBoxProps) {
+export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
   const [bonds, setBonds] = useState<BrazilBondItem[] | null>(null);
   const [asOfDate, setAsOfDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const filteredBonds = useMemo(() => {
+    if (!bonds) return [];
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return bonds;
+    return bonds.filter((b) =>
+      `${b.maturityDate} ${b.buyRate ?? ""} ${b.sellRate ?? ""}`
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [bonds, query]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -68,8 +79,10 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
             setBonds([]);
             return;
           }
+          const today = new Date().toISOString().slice(0, 10);
+          const all = Array.isArray(data.bonds) ? data.bonds : [];
           setAsOfDate(data.asOfDate ?? null);
-          setBonds(Array.isArray(data.bonds) ? data.bonds : []);
+          setBonds(all.filter((b) => b.maturityDate >= today));
         })
         .catch(() => setError("조회 중 오류가 발생했습니다."))
         .finally(() => setLoading(false));
@@ -93,7 +106,6 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
     };
 
     onApply(fields);
-    setStatus("일부 항목을 반영했습니다. 발행일은 NTN-F 발행 관행(만기 11년 전 1/1) 추정값이니 확인해 주세요.");
     setOpen(false);
 
     fetch("/api/country-rating?slug=brazil")
@@ -122,12 +134,23 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
             {asOfDate && ` · 기준일 ${asOfDate}`}
           </p>
 
+          {bonds && bonds.length > 0 && (
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="만기/금리로 좁히기 (예: 2033 또는 14.7)"
+              className="mb-2 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+          )}
+
           {error && <p className="text-xs text-zinc-500 dark:text-zinc-400">{error}</p>}
           {loading && <p className="text-xs text-zinc-500 dark:text-zinc-400">조회 중...</p>}
 
           {!loading && !error && bonds && (
             <ul className="max-h-56 overflow-y-auto">
-              {bonds.map((b) => (
+              {filteredBonds.map((b) => (
                 <li key={b.maturityDate}>
                   <button
                     type="button"
@@ -144,16 +167,12 @@ export function BrazilBondSearchBox({ disabled, active, onApply }: BrazilBondSea
                   </button>
                 </li>
               ))}
-              {bonds.length === 0 && (
+              {filteredBonds.length === 0 && (
                 <li className="px-2 py-1 text-xs text-zinc-400">거래 중인 종목이 없습니다.</li>
               )}
             </ul>
           )}
         </div>
-      )}
-
-      {active && status && !open && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p>
       )}
     </div>
   );
