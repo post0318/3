@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BondLayoutInput, Currency } from "@/types/bondLayout";
-import { COUNTRY_ISSUER_ALIASES } from "@/lib/countryIssuerAliases";
+import { COUNTRY_ISSUER_ALIASES, COUNTRY_ISSUER_SLUGS } from "@/lib/countryIssuerAliases";
 
 interface BondSearchItem {
   isin: string;
@@ -48,12 +48,14 @@ interface BondSearchBoxProps {
 
 /**
  * boerse-frankfurt.de 비공식 API로 발행자→채권→상세정보(발행일/만기일/표면이율/거래통화)를
- * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준/신용등급은 이 API에 값이
- * 없어 상세페이지 링크로 안내하고 직접 입력하도록 한다. 발행자 목록은 회사명은
+ * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준은 이 API에 값이 없어
+ * 상세페이지 링크로 안내하고 직접 입력하도록 한다. 발행자 목록은 회사명은
  * 대부분 영문이지만 국가(주권) 발행자명은 lang=en으로 바꿔도 독일어로만 내려와
  * (확인됨) 한국 사용자가 "Brazil"처럼 영어로 검색하면 매칭되지 않는다.
  * countryIssuerAliases.ts에 독일어 국가명↔영어 별칭을 하드코딩해두고 함께
- * 매칭한다.
+ * 매칭한다. 발행자가 국가 자체(=국채)이면 같은 파일의 슬러그 매핑으로
+ * tradingeconomics.com에서 국가신용등급을 가져와 자동 반영한다(한국채권검색의
+ * 국고채권, 미국채권검색의 U.S. Treasury와 동일한 취급).
  */
 export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -153,6 +155,17 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         setDetailSlug(data.slug ?? bond.slug ?? null);
         setStatus("OK");
         setOpen(false);
+
+        // 발행자가 국가(주권) 자체이면 국채이므로 발행국 국가신용등급을 자동 반영한다.
+        const countrySlug = selectedIssuer ? COUNTRY_ISSUER_SLUGS[selectedIssuer] : undefined;
+        if (countrySlug) {
+          fetch(`/api/country-rating?slug=${encodeURIComponent(countrySlug)}`)
+            .then((res) => res.json())
+            .then((rated: { rating?: string | null }) => {
+              if (rated.rating) onApply({ creditRating: rated.rating });
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => setStatus("상세정보를 불러오지 못했습니다."));
   };
