@@ -54,6 +54,9 @@ function createInitialLocked(): boolean {
 export default function Home() {
   const [input, setInput] = useState<BondLayoutInput>(createInitialInput);
   const [locked, setLocked] = useState<boolean>(createInitialLocked);
+  // 공유 링크로 열린 세션인지 여부(최초 1회 계산 후 고정). locked는 토글 가능하지만
+  // 이 값은 바뀌지 않아, 공유 링크로 열었을 때는 잠금 버튼을 계속 비활성화해둔다.
+  const [isSharedLink] = useState<boolean>(createInitialLocked);
 
   const cashFlowRows = useMemo(
     () =>
@@ -132,6 +135,7 @@ export default function Home() {
             onChange={setInput}
             locked={locked}
             onLockedChange={setLocked}
+            lockToggleDisabled={isSharedLink}
           />
           <CashFlowTable
             rows={cashFlowRows}

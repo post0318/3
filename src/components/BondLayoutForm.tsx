@@ -77,6 +77,7 @@ interface BondLayoutFormProps {
   onChange: Dispatch<SetStateAction<BondLayoutInput>>;
   locked: boolean;
   onLockedChange: (locked: boolean) => void;
+  lockToggleDisabled?: boolean;
 }
 
 const CALC_BASIS_OPTIONS: CalcBasis[] = [
@@ -210,6 +211,7 @@ export function BondLayoutForm({
   onChange,
   locked,
   onLockedChange,
+  lockToggleDisabled = false,
 }: BondLayoutFormProps) {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
@@ -434,11 +436,12 @@ export function BondLayoutForm({
           </button>
           <button
             type="button"
+            disabled={lockToggleDisabled}
             onClick={() => onLockedChange(!locked)}
             className={
               locked
-                ? "inline-flex w-fit items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
-                : "inline-flex w-fit items-center gap-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                ? "inline-flex w-fit items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400 dark:disabled:hover:bg-amber-950/40"
+                : "inline-flex w-fit items-center gap-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900"
             }
           >
             {locked ? "🔒 편입자산정보 잠김 (해제)" : "🔓 편입자산정보 잠금"}
