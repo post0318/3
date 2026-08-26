@@ -276,7 +276,7 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     if (tranche.settlementDate) fields.issueDate = tranche.settlementDate;
     if (tranche.maturityDate) fields.maturityDate = tranche.maturityDate;
     if (tranche.couponRate !== null) fields.couponRate = String(tranche.couponRate);
-    if (tranche.rating) fields.creditRating = tranche.rating;
+    fields.creditRating = tranche.rating ?? "";
     if (tranche.calcBasis && CALC_BASIS_VALUES.includes(tranche.calcBasis as CalcBasis)) {
       fields.calcBasis = tranche.calcBasis as CalcBasis;
     }

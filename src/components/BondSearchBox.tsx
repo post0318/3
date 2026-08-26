@@ -151,6 +151,9 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         if (data.currency && CURRENCY_VALUES.includes(data.currency as Currency)) {
           fields.tradeCurrency = data.currency as Currency;
         }
+        // 이 API는 신용등급을 제공하지 않는다. 이전 종목 선택 때 값이 남아있지
+        // 않도록 일단 비워두고, 국채(국가 발행자)면 아래에서 실제 등급으로 갱신한다.
+        fields.creditRating = "";
         // 발행자가 국가(주권) 자체이면 국채이므로 발행국 국가신용등급을 자동 반영한다.
         const countrySlug = selectedIssuer ? COUNTRY_ISSUER_SLUGS[selectedIssuer] : undefined;
         // 브라질 국채는 과세여부 기본값을 비과세로 반영한다(브라질채권검색과 동일).

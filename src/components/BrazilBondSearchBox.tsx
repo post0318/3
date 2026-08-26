@@ -160,7 +160,7 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
                     className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <span className="block truncate">
-                      NTN-F {NTNF_COUPON_RATE}% {b.maturityDate}
+                      NTN-F {NTNF_COUPON_RATE}% {b.maturityDate.slice(0, 4)}
                     </span>
                     <span className="text-xs text-zinc-400">
                       {b.buyRate !== null ? `매수 ${b.buyRate}%` : ""}

@@ -170,9 +170,9 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
       // 국고채권(이표채)은 ACT/ACT, 그 외(회사채/금융채/특수채/단기채 등)는 ACT/365 관행을 따른다.
       fields.calcBasis = (isTreasury ? "ACT/ACT" : "ACT/365") as CalcBasis;
     }
-    if (isTreasury) {
-      fields.creditRating = "RF";
-    }
+    // 국고채권은 우선 "RF"를 반영해두고(외화표시는 아래에서 실제 국가신용등급으로
+    // 갱신), 그 외는 이 API에 신용등급이 없으니 이전 선택 값이 남지 않도록 비운다.
+    fields.creditRating = isTreasury ? "RF" : "";
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
