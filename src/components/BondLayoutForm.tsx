@@ -373,8 +373,8 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        {/* 업로드/잠금 상태에서도 종목검색은 계속 열려 있어야 다른 종목을
-            검색해 새로 반영할 수 있다(다른 검색창들은 계속 잠금 적용). */}
+        {/* 업로드/잠금 상태에서도 검색창은 모두 계속 열려 있어야 다른 종목을
+            검색해 새로 반영할 수 있다(편입자산정보 등 직접 입력 필드만 잠금 적용). */}
         <BondSearchBox
           disabled={false}
           active={activeSearchBox === "general"}
@@ -384,7 +384,7 @@ export function BondLayoutForm({
           }}
         />
         <UsBondSearchBox
-          disabled={locked}
+          disabled={false}
           active={activeSearchBox === "us"}
           onApply={(fields) => {
             setActiveSearchBox("us");
@@ -392,7 +392,7 @@ export function BondLayoutForm({
           }}
         />
         <KoreaBondSearchBox
-          disabled={locked}
+          disabled={false}
           active={activeSearchBox === "kr"}
           onApply={(fields) => {
             setActiveSearchBox("kr");
@@ -400,7 +400,7 @@ export function BondLayoutForm({
           }}
         />
         <BrazilBondSearchBox
-          disabled={locked}
+          disabled={false}
           active={activeSearchBox === "br"}
           onApply={(fields) => {
             setActiveSearchBox("br");
