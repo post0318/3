@@ -19,6 +19,9 @@ interface BondDetail {
   couponRate: number | null;
   currency: string | null;
   slug: string | null;
+  bidYield: number | null;
+  askYield: number | null;
+  lastPriceYield: number | null;
 }
 
 const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
@@ -67,6 +70,7 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
   const [loadingBonds, setLoadingBonds] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [detailSlug, setDetailSlug] = useState<string | null>(null);
+  const [quoteInfo, setQuoteInfo] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,6 +131,8 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
     setQuery("");
     setBonds(null);
     setStatus(null);
+    setDetailSlug(null);
+    setQuoteInfo(null);
     setLoadingBonds(true);
     fetch(`/api/bond-search?issuer=${encodeURIComponent(issuer)}`)
       .then((res) => res.json())
@@ -151,6 +157,23 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         if (data.currency && CURRENCY_VALUES.includes(data.currency as Currency)) {
           fields.tradeCurrency = data.currency as Currency;
         }
+        // 매수수익률: 실제 매수 체결에 가까운 ask(매도호가) 기준 수익률을 우선,
+        // 없으면 최종가 기준 수익률로 대체한다. 값이 있을 때만 채워 넣어
+        // 이전 종목의 수동입력값을 함부로 지우지 않는다.
+        const applicableYield = data.askYield ?? data.lastPriceYield;
+        if (typeof applicableYield === "number") {
+          fields.purchaseYield = String(applicableYield);
+        }
+        const yieldParts: string[] = [];
+        if (typeof data.askYield === "number") yieldParts.push(`매수(ask) ${data.askYield}%`);
+        if (typeof data.bidYield === "number") yieldParts.push(`매도(bid) ${data.bidYield}%`);
+        if (
+          yieldParts.length === 0 &&
+          typeof data.lastPriceYield === "number"
+        ) {
+          yieldParts.push(`최종가 ${data.lastPriceYield}%`);
+        }
+        setQuoteInfo(yieldParts.length > 0 ? yieldParts.join(" · ") : "수익률 정보 없음");
         // 이 API는 신용등급을 제공하지 않는다. 이전 종목 선택 때 값이 남아있지
         // 않도록 일단 비워두고, 국채(국가 발행자)면 아래에서 실제 등급으로 갱신한다.
         fields.creditRating = "";
@@ -204,6 +227,10 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         >
           상세페이지 열기
         </a>
+      )}
+
+      {active && quoteInfo && !open && (
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{quoteInfo}</span>
       )}
 
       {open && (

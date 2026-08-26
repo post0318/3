@@ -177,9 +177,77 @@ export interface BondDetail {
   couponRate: number | null;
   currency: string | null;
   slug: string | null;
+  bidYield: number | null;
+  askYield: number | null;
+  lastPriceYield: number | null;
 }
 
-/** ISIN으로 발행일/만기일/표면이율/거래통화(+상세페이지 slug)를 조회한다 */
+/**
+ * quote_box 응답에서 수익률로 보이는 숫자 필드를 후보 키 목록으로 찾는다.
+ * 실제 필드명이 검증되지 않았으므로(사내망에서 api.boerse-frankfurt.de를
+ * 직접 호출해 확인할 수 없었음) 알려진 후보를 순서대로 시도한다. 전부
+ * 실패하면 quote_box 원본을 서버 로그에 남겨, 배포 환경에서 실제 키를
+ * 확인한 뒤 아래 후보 배열에 추가할 수 있게 한다.
+ */
+function pickYield(
+  data: Record<string, unknown> | null | undefined,
+  candidates: string[]
+): number | null {
+  if (!data) return null;
+  for (const key of candidates) {
+    const value = data[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+const BID_YIELD_KEYS = ["bidYield", "yieldBid", "yieldOnBid", "bidSideYield"];
+const ASK_YIELD_KEYS = ["askYield", "yieldAsk", "yieldOnAsk", "askSideYield"];
+const LAST_YIELD_KEYS = [
+  "lastPriceYield",
+  "yield",
+  "currentYield",
+  "yieldLastPrice",
+  "yieldOnLastPrice",
+];
+
+export interface BondQuote {
+  bidYield: number | null;
+  askYield: number | null;
+  lastPriceYield: number | null;
+}
+
+/**
+ * ISIN+MIC로 현재가/호가 정보(quote_box)를 조회해 매수(ask)/매도(bid)/최종가
+ * 기준 수익률을 뽑아낸다. boerse-frankfurt.de가 사이트에서 "최종가와 매수호가
+ * 기준 수익률을 함께 제공한다"고 밝힌 것에 맞춰 최소 이 두 값을 기대한다.
+ * 후보 필드명이 전부 안 맞으면 null들을 반환하고 원본을 로그로 남긴다.
+ */
+export async function getBondQuote(isin: string, mic: string): Promise<BondQuote> {
+  const quote = await dataRequest("quote_box", { isin, mic });
+
+  const result: BondQuote = {
+    bidYield: pickYield(quote, BID_YIELD_KEYS),
+    askYield: pickYield(quote, ASK_YIELD_KEYS),
+    lastPriceYield: pickYield(quote, LAST_YIELD_KEYS),
+  };
+
+  if (
+    quote &&
+    result.bidYield === null &&
+    result.askYield === null &&
+    result.lastPriceYield === null
+  ) {
+    console.warn(
+      `[boerseFrankfurt] quote_box(${isin})에서 수익률 후보 필드를 찾지 못했습니다. 원본:`,
+      JSON.stringify(quote)
+    );
+  }
+
+  return result;
+}
+
+/** ISIN으로 발행일/만기일/표면이율/거래통화(+상세페이지 slug)와 매수/매도 수익률을 조회한다 */
 export async function getBondDetail(isin: string): Promise<BondDetail> {
   const info = await dataRequest("instrument_information", { isin });
   const mics = info?.mics;
@@ -190,6 +258,12 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
 
   const master = await dataRequest("master_data_bond", { isin, mic });
 
+  // 수익률 조회는 부가 정보라, 실패해도 나머지(발행일/만기일 등) 조회는 살린다.
+  const quote = await getBondQuote(isin, mic).catch((err) => {
+    console.warn(`[boerseFrankfurt] quote_box(${isin}) 조회 실패:`, err);
+    return { bidYield: null, askYield: null, lastPriceYield: null } as BondQuote;
+  });
+
   return {
     isin,
     issueDate: typeof master?.issueDate === "string" ? master.issueDate : null,
@@ -197,5 +271,8 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
     couponRate: typeof master?.cupon === "number" ? master.cupon : null,
     currency: typeof master?.issueCurrency === "string" ? master.issueCurrency : null,
     slug: typeof info?.slug === "string" ? info.slug : null,
+    bidYield: quote.bidYield,
+    askYield: quote.askYield,
+    lastPriceYield: quote.lastPriceYield,
   };
 }
