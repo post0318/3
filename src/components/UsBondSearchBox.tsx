@@ -20,6 +20,9 @@ const TREASURY_COMPANY: CompanyInfo = {
   name: "U.S. Treasury",
 };
 
+/** FINRA Fixed Income Data — CUSIP/TRACE symbol로 채권을 검색해 신용등급 등 상세정보를 확인할 수 있다 */
+const FINRA_FIXED_INCOME_URL = "https://www.finra.org/finra-data/fixed-income";
+
 interface SecListItem {
   kind: "sec";
   label: string;
@@ -102,7 +105,9 @@ interface UsBondSearchBoxProps {
  * 만기일/표면이율/지급주기/날짜계산기준/신용등급/거래통화를 자동 반영한다.
  * 종목검색(boerse-frankfurt)과 동일하게 회사(또는 국채) 선택 즉시 최근 채권을
  * 평면 목록으로 보여주고 텍스트로 좁힐 수 있다. 발행사·주간사마다 문서 서식이
- * 달라 회사채는 100% 정확하지 않을 수 있다.
+ * 달라 회사채는 100% 정확하지 않을 수 있다. 한국채권검색의 SEIBRO 링크와
+ * 동일하게, 종목 선택 시 FINRA Fixed Income Data 페이지로 이동하는 신용등급
+ * 확인용 참조 링크를 함께 보여준다.
  */
 export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -113,6 +118,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const [bonds, setBonds] = useState<ListItem[] | null>(null);
   const [loadingBonds, setLoadingBonds] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [ratingLink, setRatingLink] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -268,6 +274,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
     }
 
     onApply(fields);
+    setRatingLink(FINRA_FIXED_INCOME_URL);
 
     const missing: string[] = [];
     if (!tranche.rating) missing.push("신용등급");
@@ -402,8 +409,23 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
         </div>
       )}
 
-      {status && !open && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p>
+      {(status || ratingLink) && !open && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {status}
+          {ratingLink && (
+            <>
+              {" "}
+              <a
+                href={ratingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+              >
+                FINRA에서 신용등급 확인
+              </a>
+            </>
+          )}
+        </p>
       )}
     </div>
   );
