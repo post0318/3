@@ -56,7 +56,6 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
   const [bonds, setBonds] = useState<KoreaBondItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [ratingLink, setRatingLink] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -118,13 +117,6 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
 
     onApply(fields);
     setRatingLink(seibroDetailUrl(bond));
-
-    const calcBasisNote = isKrw
-      ? "날짜계산기준은 원화채권 관행(ACT/365) 가정값이니 확인해 주세요. "
-      : "날짜계산기준은 자동으로 찾지 못해 직접 입력이 필요합니다. ";
-    setStatus(
-      `${calcBasisNote}신용등급은 자동으로 찾지 못해 직접 입력이 필요합니다.`
-    );
     setOpen(false);
   };
 
@@ -177,23 +169,15 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
         </div>
       )}
 
-      {status && !open && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {status}
-          {ratingLink && (
-            <>
-              {" "}
-              <a
-                href={ratingLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-              >
-                SEIBRO에서 신용등급 확인
-              </a>
-            </>
-          )}
-        </p>
+      {ratingLink && !open && (
+        <a
+          href={ratingLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+        >
+          SEIBRO에서 신용등급 확인
+        </a>
       )}
     </div>
   );
