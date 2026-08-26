@@ -71,8 +71,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ratingLink, setRatingLink] = useState<string | null>(null);
-  const [ratingIsin, setRatingIsin] = useState<string | null>(null);
-  const [isinCopied, setIsinCopied] = useState(false);
+  const [ratingSearchName, setRatingSearchName] = useState<string | null>(null);
+  const [nameCopied, setNameCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -182,8 +182,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
-    setRatingIsin(isTreasury ? null : bond.isin);
-    setIsinCopied(false);
+    setRatingSearchName(isTreasury ? null : bond.name);
+    setNameCopied(false);
     setOpen(false);
 
     // 원화표시 국고채권은 RF 그대로 두고, 외화표시(예: USD) 국고채권만 실제
@@ -281,13 +281,14 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
             rel="noopener noreferrer"
             onClick={() => {
               // 세이브로 상세페이지는 URL의 ISIN 파라미터로 종목을 자동 선택해주지
-              // 않고 "종목을 선택해주세요" 팝업과 함께 빈 검색창만 띄운다. 링크를
-              // 열 때 ISIN을 클립보드에 복사해두면 그 검색창에 바로 붙여넣을 수
-              // 있다.
-              if (ratingIsin) {
+              // 않고 "종목을 선택해주세요" 팝업과 함께 빈 검색창만 띄운다. ISIN을
+              // 종목란에 붙여넣어도 같은 팝업이 다시 뜨지만, 종목명을 붙여넣으면
+              // 바로 조회된다(실제 확인). 링크를 열 때 종목명을 클립보드에
+              // 복사해두면 그 검색창에 바로 붙여넣을 수 있다.
+              if (ratingSearchName) {
                 navigator.clipboard
-                  .writeText(ratingIsin)
-                  .then(() => setIsinCopied(true))
+                  .writeText(ratingSearchName)
+                  .then(() => setNameCopied(true))
                   .catch(() => {});
               }
             }}
@@ -296,7 +297,7 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
             SEIBRO에서 신용등급 확인
           </a>
           <span className="text-xs text-zinc-400">
-            {isinCopied ? "(ISIN 복사됨 - 종목란에 붙여넣기)" : "(클릭 시 ISIN 복사)"}
+            {nameCopied ? "(종목명 복사됨 - 종목란에 붙여넣기)" : "(클릭 시 종목명 복사)"}
           </span>
         </span>
       )}
