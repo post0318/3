@@ -6,6 +6,7 @@ import {
   CalcBasis,
   CouponFrequency,
   Currency,
+  TaxStatus,
 } from "@/types/bondLayout";
 
 interface CompanyInfo {
@@ -277,6 +278,9 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     if (tranche.maturityDate) fields.maturityDate = tranche.maturityDate;
     if (tranche.couponRate !== null) fields.couponRate = String(tranche.couponRate);
     fields.creditRating = tranche.rating ?? "";
+    // 비과세 기본값은 브라질 국채만 대상이므로, 미국채권검색에서는 이전 선택
+    // 값이 남지 않도록 일반과세로 되돌린다.
+    fields.taxStatus = "일반과세" as TaxStatus;
     if (tranche.calcBasis && CALC_BASIS_VALUES.includes(tranche.calcBasis as CalcBasis)) {
       fields.calcBasis = tranche.calcBasis as CalcBasis;
     }

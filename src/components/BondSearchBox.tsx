@@ -157,9 +157,10 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         // 발행자가 국가(주권) 자체이면 국채이므로 발행국 국가신용등급을 자동 반영한다.
         const countrySlug = selectedIssuer ? COUNTRY_ISSUER_SLUGS[selectedIssuer] : undefined;
         // 브라질 국채는 과세여부 기본값을 비과세로 반영한다(브라질채권검색과 동일).
-        if (countrySlug === "brazil") {
-          fields.taxStatus = "비과세" as TaxStatus;
-        }
+        // 그 외는 이전 선택(예: 브라질 국채) 값이 남지 않도록 일반과세로 되돌린다.
+        fields.taxStatus = (countrySlug === "brazil"
+          ? "비과세"
+          : "일반과세") as TaxStatus;
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
         setStatus("OK");

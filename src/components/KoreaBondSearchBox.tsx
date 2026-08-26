@@ -6,6 +6,7 @@ import {
   CalcBasis,
   CouponFrequency,
   Currency,
+  TaxStatus,
 } from "@/types/bondLayout";
 
 interface KoreaBondItem {
@@ -173,6 +174,9 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     // 국고채권은 우선 "RF"를 반영해두고(외화표시는 아래에서 실제 국가신용등급으로
     // 갱신), 그 외는 이 API에 신용등급이 없으니 이전 선택 값이 남지 않도록 비운다.
     fields.creditRating = isTreasury ? "RF" : "";
+    // 비과세 기본값은 브라질 국채(브라질채권검색/종목검색의 브라질 발행자)만
+    // 대상이므로, 한국채권검색에서는 이전 선택 값이 남지 않도록 일반과세로 되돌린다.
+    fields.taxStatus = "일반과세" as TaxStatus;
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
