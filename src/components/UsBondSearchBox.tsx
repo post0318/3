@@ -214,7 +214,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
         maturityDate: bond.data.maturityDate,
         couponRate: bond.data.couponRate,
         isin: bond.data.cusip,
-        rating: "무위험(미국국채)",
+        rating: "RF",
         couponFrequencyMonths: frequencyFromTreasuryLabel(bond.data.frequency),
         settlementDate: bond.data.issueDate,
         calcBasis: "ACT/ACT",
@@ -295,7 +295,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
         onClick={() => setOpen((v) => !v)}
         className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-blue-400 dark:disabled:text-zinc-600"
       >
-        미국채권검색(SEC)
+        미국채권검색
       </button>
 
       {open && (

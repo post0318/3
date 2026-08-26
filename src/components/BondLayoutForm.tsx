@@ -531,7 +531,7 @@ export function BondLayoutForm({
             </select>
             <PrintValue value={value.calcBasis} />
           </Row>
-          <Row label="해외신용등급" editable>
+          <Row label="신용등급" editable>
             <input
               className={inputClass}
               type="text"

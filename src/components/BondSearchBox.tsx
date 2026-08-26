@@ -46,7 +46,7 @@ interface BondSearchBoxProps {
 
 /**
  * boerse-frankfurt.de 비공식 API로 발행자→채권→상세정보(발행일/만기일/표면이율/거래통화)를
- * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준/해외신용등급은 이 API에 값이
+ * 조회해 편입자산정보에 반영한다. 지급주기/날짜계산기준/신용등급은 이 API에 값이
  * 없어 상세페이지 링크로 안내하고 직접 입력하도록 한다.
  */
 export function BondSearchBox({ disabled, onApply }: BondSearchBoxProps) {

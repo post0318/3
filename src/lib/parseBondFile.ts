@@ -32,6 +32,7 @@ const LABEL_TO_FIELD: Record<string, UploadableField> = {
   최근이표일: "recentCouponDate",
   과세여부: "taxStatus",
   "날짜계산 기준": "calcBasis",
+  신용등급: "creditRating",
   해외신용등급: "creditRating",
   선취보수율: "frontFeeRate",
   "선취보수율(%)": "frontFeeRate",
