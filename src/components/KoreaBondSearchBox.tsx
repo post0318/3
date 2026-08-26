@@ -179,6 +179,9 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     // 비과세 기본값은 브라질 국채(브라질채권검색/종목검색의 브라질 발행자)만
     // 대상이므로, 한국채권검색에서는 이전 선택 값이 남지 않도록 일반과세로 되돌린다.
     fields.taxStatus = "일반과세" as TaxStatus;
+    // 이 데이터소스(data.go.kr)에는 매수금리(현재 시장 수익률) 정보가 없어,
+    // 다른 종목검색(예: 브라질채권검색)에서 반영된 값이 남지 않도록 비운다.
+    fields.purchaseYield = "";
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));

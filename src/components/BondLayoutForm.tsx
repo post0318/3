@@ -686,6 +686,26 @@ export function BondLayoutForm({
                   trustInvestmentAmount:
                     custodyCurrency === "KRW" ? "100000000" : "1000000",
                 });
+                // 거래통화와 수탁통화가 달라지면 환율을 직접 입력해야 하던
+                // 것을, 현재 환율을 자동 조회해 기본값으로 채워 넣는다
+                // (필요하면 사용자가 직접 수정 가능).
+                const tradeCurrency = value.tradeCurrency;
+                fetch(
+                  `/api/fx-rate?base=${encodeURIComponent(tradeCurrency)}&quote=${encodeURIComponent(custodyCurrency)}`
+                )
+                  .then((res) => res.json())
+                  .then((data: { rate?: number | null }) => {
+                    if (typeof data.rate === "number") {
+                      const rate = String(data.rate);
+                      onChange((prev) =>
+                        prev.tradeCurrency === tradeCurrency &&
+                        prev.custodyCurrency === custodyCurrency
+                          ? { ...prev, purchaseFxRate: rate, maturityFxRate: rate }
+                          : prev
+                      );
+                    }
+                  })
+                  .catch(() => {});
               }}
             >
               {CURRENCY_OPTIONS.map((opt) => (

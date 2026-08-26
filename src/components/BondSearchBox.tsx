@@ -158,12 +158,11 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
           fields.tradeCurrency = data.currency as Currency;
         }
         // 매수수익률: 실제 매수 체결에 가까운 ask(매도호가) 기준 수익률을 우선,
-        // 없으면 최종가 기준 수익률로 대체한다. 값이 있을 때만 채워 넣어
-        // 이전 종목의 수동입력값을 함부로 지우지 않는다.
+        // 없으면 최종가 기준 수익률로 대체한다. 값이 없으면 다른 종목검색에서
+        // 반영된 값이 남지 않도록 비운다.
         const applicableYield = data.askYield ?? data.lastPriceYield;
-        if (typeof applicableYield === "number") {
-          fields.purchaseYield = String(applicableYield);
-        }
+        fields.purchaseYield =
+          typeof applicableYield === "number" ? String(applicableYield) : "";
         const yieldParts: string[] = [];
         if (typeof data.askYield === "number") yieldParts.push(`매수(ask) ${data.askYield}%`);
         if (typeof data.bidYield === "number") yieldParts.push(`매도(bid) ${data.bidYield}%`);
