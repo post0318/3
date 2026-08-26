@@ -48,7 +48,7 @@ async function fetchByParam(
 ): Promise<KoreaBondItem[]> {
   const url =
     `${BASE_URL}?serviceKey=${serviceKey}` +
-    `&numOfRows=999&pageNo=1&resultType=json` +
+    `&numOfRows=20000&pageNo=1&resultType=json` +
     `&${paramName}=${encodeURIComponent(keyword)}`;
 
   const res = await fetch(url);
@@ -77,9 +77,10 @@ async function fetchByParam(
  * scrsItmsKcdNm도 "국채"로만 짧게 등록돼 있어 "국고채권"이라는 채권명 자체로는
  * 두 항목 다 걸리지 않는 경우가 있어(부분일치는 필드 값이 검색어를 포함해야
  * 하는데 필드 값이 검색어보다 짧으면 매칭되지 않음), 채권명(isinCdNm) 검색을
- * 추가해 이런 경우도 포괄한다. numOfRows는 999로 넉넉히 잡아(종목종류처럼
- * 건수가 많은 조건에서 기본 50건으로는 실제로 존재하는 채권이 잘려 누락되는
- * 문제가 있었다) 페이지네이션 없이 한 번에 받는다. 서비스키는
+ * 추가해 이런 경우도 포괄한다. numOfRows는 20000으로 넉넉히 잡아(종목종류처럼
+ * 건수가 많은 조건은 9,000건대까지 나오는데, 999로는 대부분 잘려 실제로
+ * 존재하는 채권이 누락되는 문제가 있었다) 페이지네이션 없이 한 번에 받는다.
+ * 서비스키는
  * DATA_GO_KR_BOND_SERVICE_KEY 환경변수로 관리한다. 라이선스: 공공누리 제2유형
  * (출처표시, 상업적 이용금지) — 상업적 활용 시 한국예탁결제원과 별도
  * 정보이용계약이 필요하다(portal@ksd.or.kr).

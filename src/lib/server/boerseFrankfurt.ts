@@ -137,13 +137,17 @@ export interface BondSearchItem {
   slug: string | null;
 }
 
-/** 특정 발행자의 채권 목록 (라벨/쿠폰/통화/슬러그) */
+/**
+ * 특정 발행자의 채권 목록 (라벨/쿠폰/통화/슬러그). limit을 200에서 1000으로
+ * 올렸다 — 발행 종목이 많은 발행자(예: 독일 국채 recordsTotal=225건)는
+ * 200으로 잘려 일부가 누락됐음을 확인.
+ */
 export async function searchBondsByIssuer(issuer: string): Promise<BondSearchItem[]> {
   const data = await searchRequest("bond_search", {
     issuers: [issuer],
     lang: "de",
     offset: 0,
-    limit: 200,
+    limit: 1000,
     sorting: "NAME",
     sortOrder: "ASC",
   });

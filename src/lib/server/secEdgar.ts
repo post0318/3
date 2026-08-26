@@ -69,7 +69,7 @@ async function getFilings(
 
 /** 최근 채권 발행 시 제출되는 가격결정 조건표(FWP) 목록 */
 export async function getFwpFilings(cik: string): Promise<FilingSummary[]> {
-  return getFilings(cik, "FWP", 20);
+  return getFilings(cik, "FWP", 30);
 }
 
 async function getPrimaryDocUrl(indexUrl: string): Promise<string | null> {
@@ -411,7 +411,7 @@ export interface BondListItem {
  */
 export async function getRecentBondList(
   cik: string,
-  maxOfferings = 5
+  maxOfferings = 15
 ): Promise<BondListItem[]> {
   const offerings = (await getFwpFilings(cik)).slice(0, maxOfferings);
   const results = await Promise.all(
