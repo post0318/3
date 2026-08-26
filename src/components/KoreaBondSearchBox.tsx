@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BondLayoutInput,
   CalcBasis,
@@ -42,10 +42,11 @@ interface KoreaBondSearchBoxProps {
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
  * 자동 반영한다. 날짜계산기준은 원화채권 관행에 맞춰 종목별로 자동 반영한다
  * (국고채권=ACT/ACT, 그 외 회사채/금융채/특수채/단기채 등=ACT/365). 미국채권검색의
- * U.S. Treasury 버튼과 동일하게, 검색창을 열면 국고채권 전용 바로가기 버튼을
- * 최상단에 두어 별도로 구성한다. 클릭하면 입력창은 비운 채(예시 placeholder만
- * 노출) 목록을 국고채권으로만 제한하고, 사용자가 입력창에 직접 타이핑하면
- * 이 제한이 풀리고 일반 검색으로 돌아간다. 공공누리
+ * U.S. Treasury 버튼과 동일한 "선택" 방식으로 국고채권 전용 바로가기 버튼을
+ * 최상단에 둔다. 클릭하면(=국고채권 선택) 목록을 한 번만 받아온 뒤 재조회 없이
+ * 입력창은 채권명/쿠폰으로 그 목록만 좁히는 용도로 바뀌고, "← 다른 회사"
+ * 버튼으로만 일반 검색으로 되돌아간다(입력창에 타이핑해도 선택이 풀리지
+ * 않는다). 공공누리
  * 2유형(출처표시·상업적 이용금지) —
  * 상업적 활용은 한국예탁결제원과 별도 계약이 필요하다.
  */
@@ -79,7 +80,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
   }, []);
 
   useEffect(() => {
-    const keyword = treasuryOnly ? "국고채권" : query.trim();
+    if (treasuryOnly) return;
+    const keyword = query.trim();
     const timer = setTimeout(() => {
       if (keyword.length < 2) {
         setBonds(null);
@@ -105,6 +107,46 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     }, 400);
     return () => clearTimeout(timer);
   }, [query, treasuryOnly]);
+
+  /** 국고채권 선택 후에는 재조회 없이, 이미 받아온 목록을 채권명/쿠폰 텍스트로만 좁힌다(U.S. Treasury 선택 후와 동일한 방식) */
+  const filteredBonds = useMemo(() => {
+    if (!bonds) return [];
+    if (!treasuryOnly) return bonds;
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return bonds;
+    return bonds.filter((b) =>
+      `${b.name} ${b.couponRate ?? ""}`.toLowerCase().includes(keyword)
+    );
+  }, [bonds, treasuryOnly, query]);
+
+  const selectTreasury = () => {
+    setTreasuryOnly(true);
+    setQuery("");
+    setBonds(null);
+    setError(null);
+    setLoading(true);
+    fetch(`/api/kr-bond-search?issuer=${encodeURIComponent("국고채권")}`)
+      .then((res) => res.json())
+      .then((data: { bonds?: KoreaBondItem[]; error?: string }) => {
+        if (data.error) {
+          setError("온라인(Vercel) 배포판에서만, 그리고 서비스키가 설정된 경우에만 사용할 수 있습니다.");
+          setBonds([]);
+          return;
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const all = Array.isArray(data.bonds) ? data.bonds : [];
+        setBonds(all.filter((b) => !b.maturityDate || b.maturityDate >= today));
+      })
+      .catch(() => setError("조회 중 오류가 발생했습니다."))
+      .finally(() => setLoading(false));
+  };
+
+  const resetTreasury = () => {
+    setTreasuryOnly(false);
+    setQuery("");
+    setBonds(null);
+    setError(null);
+  };
 
   const selectBond = (bond: KoreaBondItem) => {
     const fields: Partial<BondLayoutInput> = {};
@@ -147,29 +189,38 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
 
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 w-96 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
-          <button
-            type="button"
-            onClick={() => {
-              setTreasuryOnly(true);
-              setQuery("");
-            }}
-            className={`mb-2 block w-full rounded-md border px-2 py-1.5 text-left text-sm font-medium ${
-              treasuryOnly
-                ? "border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-950/40"
-                : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            }`}
-          >
-            국고채권
-          </button>
+          {treasuryOnly ? (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                국고채권
+              </span>
+              <button
+                type="button"
+                onClick={resetTreasury}
+                className="shrink-0 text-xs text-zinc-400 hover:underline"
+              >
+                ← 다른 회사
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={selectTreasury}
+              className="mb-2 block w-full rounded-md border border-zinc-300 px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              국고채권
+            </button>
+          )}
           <input
             autoFocus
             type="text"
             value={query}
-            onChange={(e) => {
-              setTreasuryOnly(false);
-              setQuery(e.target.value);
-            }}
-            placeholder="발행회사명 또는 채권종류 입력 (예: 롯데케미칼, 국채, 지방채)"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              treasuryOnly
+                ? "채권명/쿠폰으로 좁히기 (예: 24-2 또는 3.0)"
+                : "발행회사명 또는 채권종류 입력 (예: 롯데케미칼, 국채, 지방채)"
+            }
             className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           />
 
@@ -178,7 +229,7 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
 
           {!loading && !error && bonds && (
             <ul className="mt-2 max-h-56 overflow-y-auto">
-              {bonds.map((b, i) => (
+              {filteredBonds.map((b, i) => (
                 <li key={`${b.isin}-${i}`}>
                   <button
                     type="button"
@@ -192,7 +243,7 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
                   </button>
                 </li>
               ))}
-              {bonds.length === 0 && (
+              {filteredBonds.length === 0 && (
                 <li className="px-2 py-1 text-xs text-zinc-400">일치하는 종목이 없습니다.</li>
               )}
             </ul>
