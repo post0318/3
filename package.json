@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:offline": "node scripts/build-offline.mjs",
-    "build:single": "next build && node scripts/build-single-file.mjs",
+    "build:single": "npm run build:offline && node scripts/build-single-file.mjs",
     "start": "next start",
     "lint": "eslint"
   },
