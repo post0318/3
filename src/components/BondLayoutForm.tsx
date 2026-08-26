@@ -43,6 +43,39 @@ function formatSettlementAmount(n: number, isKrw: boolean): string {
   return isKrw ? Math.trunc(n).toLocaleString("ko-KR") : formatAmount(n);
 }
 
+/**
+ * 종목검색 결과를 반영할 때 거래통화가 함께 바뀌면 수탁통화도 기본으로
+ * 따라가도록 한다(거래통화 우선, 동일 통화가 기본값). 거래통화 셀렉트를
+ * 수동으로 바꿀 때의 동작과 동일하다.
+ */
+function applyFieldsWithCurrencySync(
+  value: BondLayoutInput,
+  fields: Partial<BondLayoutInput>
+): BondLayoutInput {
+  const tradeCurrency = fields.tradeCurrency;
+  if (!tradeCurrency || tradeCurrency === value.custodyCurrency) {
+    return { ...value, ...fields };
+  }
+  if (tradeCurrency === "KRW") {
+    return {
+      ...value,
+      ...fields,
+      custodyCurrency: "KRW",
+      purchaseFxRate: "",
+      maturityFxRate: "",
+      trustInvestmentAmount: "100000000",
+    };
+  }
+  return {
+    ...value,
+    ...fields,
+    custodyCurrency: tradeCurrency,
+    purchaseFxRate: "1",
+    maturityFxRate: "1",
+    trustInvestmentAmount: "1000000",
+  };
+}
+
 interface BondLayoutFormProps {
   value: BondLayoutInput;
   onChange: (value: BondLayoutInput) => void;
@@ -321,9 +354,9 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        <BondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
-        <UsBondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
-        <KoreaBondSearchBox disabled={locked} onApply={(fields) => onChange({ ...value, ...fields })} />
+        <BondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
+        <UsBondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
+        <KoreaBondSearchBox disabled={locked} onApply={(fields) => onChange(applyFieldsWithCurrencySync(value, fields))} />
       </div>
 
       {value.name && (

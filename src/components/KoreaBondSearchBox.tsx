@@ -28,13 +28,28 @@ interface KoreaBondSearchBoxProps {
 }
 
 /**
+ * SEIBRO(seibro.or.kr) 채권 상세페이지의 신용등급 조회는 WebSquare 기반
+ * 동적 페이지라 서버에서 값을 직접 긁어오려면 브라우저 부트로딩 시퀀스를
+ * 흉내내야 하는데, 자동화된 반복 호출은 곧바로 차단당해(서버오류3) 배포
+ * 환경에서 신뢰할 수 없었다. 그래서 신용등급은 자동 반영하지 않고, 종목
+ * 선택 시 해당 ISIN의 SEIBRO 상세페이지로 바로 이동하는 참조 링크만 제공해
+ * 사용자가 직접 확인 후 입력하도록 한다.
+ *
  * 금융위원회_채권기본정보(data.go.kr, 원천: 한국예탁결제원) API로 국내 채권을
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
- * 자동 반영한다. 신용등급은 이 API에 없어 수동 입력이 필요하고, 날짜계산기준은
- * 원화채권 시장 관행(ACT/365)을 가정값으로 반영한다(확인 후 사용 권장).
- * 공공누리 2유형(출처표시·상업적 이용금지) — 상업적 활용은 한국예탁결제원과
- * 별도 계약이 필요하다.
+ * 자동 반영한다. 날짜계산기준은 원화채권 시장 관행(ACT/365)을 가정값으로
+ * 반영한다(확인 후 사용 권장). 공공누리 2유형(출처표시·상업적 이용금지) —
+ * 상업적 활용은 한국예탁결제원과 별도 계약이 필요하다.
  */
+function seibroDetailUrl(bond: KoreaBondItem): string {
+  const params = new URLSearchParams({
+    w2xPath: "/IPORTAL/user/bond/BIP_CNTS03005V.xml",
+    ISIN: bond.isin,
+    menuNo: "88",
+  });
+  return `https://seibro.or.kr/websquare/control.jsp?${params.toString()}`;
+}
+
 export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -42,6 +57,7 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [ratingLink, setRatingLink] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,20 +112,18 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
       fields.tradeCurrency = bond.currency as Currency;
       isKrw = bond.currency === "KRW";
     }
-    let calcBasisApplied = false;
     if (isKrw) {
       fields.calcBasis = "ACT/365" as CalcBasis;
-      calcBasisApplied = true;
     }
 
     onApply(fields);
+    setRatingLink(seibroDetailUrl(bond));
 
-    const missing = ["신용등급"];
-    if (!calcBasisApplied) missing.push("날짜계산기준");
+    const calcBasisNote = isKrw
+      ? "날짜계산기준은 원화채권 관행(ACT/365) 가정값이니 확인해 주세요. "
+      : "날짜계산기준은 자동으로 찾지 못해 직접 입력이 필요합니다. ";
     setStatus(
-      isKrw
-        ? `일부 항목을 반영했습니다. 날짜계산기준은 원화채권 관행(ACT/365) 가정값이니 확인해 주세요. 신용등급은 자동으로 찾지 못해 직접 입력이 필요합니다.`
-        : `일부 항목을 반영했습니다. ${missing.join("/")}은(는) 자동으로 찾지 못해 직접 입력이 필요합니다.`
+      `${calcBasisNote}신용등급은 자동으로 찾지 못해 직접 입력이 필요합니다.`
     );
     setOpen(false);
   };
@@ -164,7 +178,22 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
       )}
 
       {status && !open && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {status}
+          {ratingLink && (
+            <>
+              {" "}
+              <a
+                href={ratingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+              >
+                SEIBRO에서 신용등급 확인
+              </a>
+            </>
+          )}
+        </p>
       )}
     </div>
   );
