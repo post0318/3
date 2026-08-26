@@ -71,6 +71,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ratingLink, setRatingLink] = useState<string | null>(null);
+  const [ratingIsin, setRatingIsin] = useState<string | null>(null);
+  const [isinCopied, setIsinCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -180,6 +182,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
+    setRatingIsin(isTreasury ? null : bond.isin);
+    setIsinCopied(false);
     setOpen(false);
 
     // 원화표시 국고채권은 RF 그대로 두고, 외화표시(예: USD) 국고채권만 실제
@@ -270,14 +274,31 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
       )}
 
       {active && ratingLink && !open && (
-        <a
-          href={ratingLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
-        >
-          SEIBRO에서 신용등급 확인
-        </a>
+        <span className="inline-flex items-center gap-1.5">
+          <a
+            href={ratingLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              // 세이브로 상세페이지는 URL의 ISIN 파라미터로 종목을 자동 선택해주지
+              // 않고 "종목을 선택해주세요" 팝업과 함께 빈 검색창만 띄운다. 링크를
+              // 열 때 ISIN을 클립보드에 복사해두면 그 검색창에 바로 붙여넣을 수
+              // 있다.
+              if (ratingIsin) {
+                navigator.clipboard
+                  .writeText(ratingIsin)
+                  .then(() => setIsinCopied(true))
+                  .catch(() => {});
+              }
+            }}
+            className="text-xs text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+          >
+            SEIBRO에서 신용등급 확인
+          </a>
+          <span className="text-xs text-zinc-400">
+            {isinCopied ? "(ISIN 복사됨 - 종목란에 붙여넣기)" : "(클릭 시 ISIN 복사)"}
+          </span>
+        </span>
       )}
     </div>
   );
