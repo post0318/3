@@ -623,6 +623,8 @@ export function BondLayoutForm({
                     tradeCurrency,
                     purchaseFxRate: "1",
                     maturityFxRate: "1",
+                    trustInvestmentAmount:
+                      tradeCurrency === "KRW" ? "100000000" : "1000000",
                   });
                   return;
                 }
@@ -657,6 +659,8 @@ export function BondLayoutForm({
                     custodyCurrency,
                     purchaseFxRate: "1",
                     maturityFxRate: "1",
+                    trustInvestmentAmount:
+                      custodyCurrency === "KRW" ? "100000000" : "1000000",
                   });
                   return;
                 }
