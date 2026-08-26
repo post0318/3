@@ -34,12 +34,12 @@ interface KoreaBondSearchBoxProps {
  * 흉내내야 하는데, 자동화된 반복 호출은 곧바로 차단당해(서버오류3) 배포
  * 환경에서 신뢰할 수 없었다. 그래서 신용등급은 자동 반영하지 않고, 종목
  * 선택 시 해당 ISIN의 SEIBRO 상세페이지로 바로 이동하는 참조 링크만 제공해
- * 사용자가 직접 확인 후 입력하도록 한다. 다만 국고채권은 개별 채권 신용평가
- * 대상이 아니라, tradingeconomics.com/country-list/rating(정적 HTML, 인증
- * 불필요, 반복 호출도 막히지 않음을 확인)에서 대한민국 국가신용등급(S&P/
- * Moody's만, DBRS 제외)을 가져와 신용등급으로 자동 반영한다(조회 지연에 대비해
- * 우선 "RF"를 반영해두고 성공 시 실제 등급으로 갱신). 미국채권검색에서
- * 미국국채에 미국 국가신용등급을 반영하는 것과 동일한 취급이다.
+ * 사용자가 직접 확인 후 입력하도록 한다. 국고채권은 우선 "RF"를 반영해두고,
+ * 원화(KRW)표시 국고채권은 그대로 "RF"를 유지한다(국내에서는 국고채가
+ * 무위험자산으로 통용됨). 외화(예: USD)표시 국고채권만
+ * tradingeconomics.com/country-list/rating(정적 HTML, 인증 불필요, 반복
+ * 호출도 막히지 않음을 확인)에서 대한민국 국가신용등급(S&P/Moody's만, DBRS
+ * 제외)을 가져와 실제 등급으로 갱신한다.
  *
  * 금융위원회_채권기본정보(data.go.kr, 원천: 한국예탁결제원) API로 국내 채권을
  * 발행회사명(부분일치)으로 검색해 발행일/만기일/표면이율/지급주기/거래통화를
@@ -178,7 +178,9 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
     setOpen(false);
 
-    if (isTreasury) {
+    // 원화표시 국고채권은 RF 그대로 두고, 외화표시(예: USD) 국고채권만 실제
+    // 대한민국 국가신용등급으로 갱신한다.
+    if (isTreasury && !isKrw) {
       fetch("/api/country-rating?slug=south-korea")
         .then((res) => res.json())
         .then((data: { rating?: string | null }) => {
