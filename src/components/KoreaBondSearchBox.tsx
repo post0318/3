@@ -124,7 +124,7 @@ export function KoreaBondSearchBox({ disabled, onApply }: KoreaBondSearchBoxProp
     }
 
     onApply(fields);
-    setRatingLink(seibroDetailUrl(bond));
+    setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
     setOpen(false);
   };
 

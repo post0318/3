@@ -225,7 +225,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
         settlementDate: bond.data.issueDate,
         calcBasis: "ACT/ACT",
       };
-      applyTranche(tranche, TREASURY_COMPANY.name, "USD");
+      applyTranche(tranche, TREASURY_COMPANY.name, "USD", true);
       return;
     }
 
@@ -252,7 +252,8 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
   const applyTranche = (
     tranche: BondTranche,
     issuer: string | null,
-    currency: string
+    currency: string,
+    isTreasury = false
   ) => {
     const fields: Partial<BondLayoutInput> = {};
     const displayIssuer = issuer ?? selectedCompany?.name ?? "";
@@ -274,7 +275,7 @@ export function UsBondSearchBox({ disabled, onApply }: UsBondSearchBoxProps) {
     }
 
     onApply(fields);
-    setRatingLink(FINRA_FIXED_INCOME_URL);
+    setRatingLink(isTreasury ? null : FINRA_FIXED_INCOME_URL);
 
     const missing: string[] = [];
     if (!tranche.rating) missing.push("신용등급");
