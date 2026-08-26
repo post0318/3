@@ -1,6 +1,8 @@
 import { CalcBasis, CouponFrequency } from "@/types/bondLayout";
 import {
+  FREQUENCY_MONTHS,
   FREQUENCY_PER_YEAR,
+  addMonths,
   getCouponPeriod,
   getSettlementDate,
 } from "@/lib/couponSchedule";
@@ -158,6 +160,57 @@ export function computeCleanPrice(
   );
 }
 
+/** settlement 이후 다음 이표일부터 만기까지의 명목상(달력) 이표일 목록 */
+function brazilCouponDates(
+  settlement: Date,
+  maturity: Date,
+  frequency: CouponFrequency
+): Date[] {
+  const months = FREQUENCY_MONTHS[frequency];
+  const dates: Date[] = [];
+  let cursor = maturity;
+  while (cursor > settlement) {
+    dates.unshift(cursor);
+    cursor = addMonths(cursor, -months);
+  }
+  return dates;
+}
+
+/**
+ * 브라질 국채(NTN-F 등, Business/252) 전용 가격(=결제금액/dirty price) 계산.
+ * 미국식 PRICE() 공식(days360Us 기반)과는 근본적으로 다른 ANBIMA 표준 공식을
+ * 쓴다: 표면금리를 복리로 환산한 반기 실효쿠폰(예: 연 10% -> 반기 4.880885%,
+ * "6개월마다 복리 환산 이자 지급")을 지급하고, 결제일부터 각 현금흐름까지의
+ * 영업일수(Business/252)를 지수로 한 복리로 할인한다: PU = Σ CF/(1+수익률)^(영업일수/252).
+ * 블룸버그 실제 값(NTN-F 2037, 수익률 14%, 2026-08-27 결제)과 대조해 0.04%
+ * 이내로 일치함을 확인했다. computeCleanPrice(엑셀 PRICE 방식)를 그대로 쓰면
+ * 이 특성을 반영하지 못해 3~5% 오차가 난다.
+ */
+export function computeBrazilDirtyPrice(
+  settlement: Date,
+  maturity: Date,
+  annualRate: number,
+  annualYield: number,
+  redemption: number,
+  frequency: CouponFrequency
+): number | null {
+  if (settlement >= maturity) return null;
+
+  const f = FREQUENCY_PER_YEAR[frequency];
+  const coupon = redemption * (Math.pow(1 + annualRate, 1 / f) - 1);
+  const dates = brazilCouponDates(settlement, maturity, frequency);
+  if (dates.length === 0) return null;
+
+  let pv = 0;
+  for (const date of dates) {
+    const isMaturity = date.getTime() === maturity.getTime();
+    const cashFlow = coupon + (isMaturity ? redemption : 0);
+    const businessDays = brazilBusinessDaysBetween(settlement, date);
+    pv += cashFlow / Math.pow(1 + annualYield, businessDays / 252);
+  }
+  return pv;
+}
+
 export interface BondPricingInputs {
   maturityDate: string;
   couponRate: string; // %
@@ -210,19 +263,10 @@ export function computeBondPricing(
   const settlement = getSettlementDate(input.trustContractDate);
   if (!settlement) return null;
 
-  // 국내 원화채권은 액면 10,000원당 가격으로, 그 외에는 국제 관행대로 액면 100당 가격으로 계산한다.
-  const redemptionBasis = input.tradeCurrency === "KRW" ? 10000 : 100;
-
-  const cleanRaw = computeCleanPrice(
-    settlement,
-    maturity,
-    rate / 100,
-    yld / 100,
-    redemptionBasis,
-    input.couponFrequency
-  );
-  if (cleanRaw === null) return null;
-  const cleanPrice = roundUp(cleanRaw, 4);
+  // 국내 원화채권은 액면 10,000원당, 브라질 국채(ANBIMA 관행)는 액면 1,000당,
+  // 그 외는 국제 관행대로 액면 100당 가격으로 계산한다.
+  const isBrazil = input.calcBasis === "Business/252";
+  const redemptionBasis = isBrazil ? 1000 : input.tradeCurrency === "KRW" ? 10000 : 100;
 
   const recentCoupon = input.recentCouponDate
     ? new Date(input.recentCouponDate)
@@ -231,10 +275,38 @@ export function computeBondPricing(
 
   const basis = BASIS_INDEX[input.calcBasis];
   const accrualFrac = yearFrac(recentCoupon, settlement, basis);
-  const dirtyPrice = roundUp(
-    cleanPrice + redemptionBasis * (rate / 100) * accrualFrac,
-    4
-  );
+
+  let cleanPrice: number;
+  let dirtyPrice: number;
+
+  if (isBrazil) {
+    const dirtyRaw = computeBrazilDirtyPrice(
+      settlement,
+      maturity,
+      rate / 100,
+      yld / 100,
+      redemptionBasis,
+      input.couponFrequency
+    );
+    if (dirtyRaw === null) return null;
+    dirtyPrice = roundUp(dirtyRaw, 4);
+    cleanPrice = roundUp(dirtyPrice - redemptionBasis * (rate / 100) * accrualFrac, 4);
+  } else {
+    const cleanRaw = computeCleanPrice(
+      settlement,
+      maturity,
+      rate / 100,
+      yld / 100,
+      redemptionBasis,
+      input.couponFrequency
+    );
+    if (cleanRaw === null) return null;
+    cleanPrice = roundUp(cleanRaw, 4);
+    dirtyPrice = roundUp(
+      cleanPrice + redemptionBasis * (rate / 100) * accrualFrac,
+      4
+    );
+  }
 
   const needsFx = input.tradeCurrency !== input.custodyCurrency;
   const fxRate = needsFx ? Number(input.purchaseFxRate) : 1;
