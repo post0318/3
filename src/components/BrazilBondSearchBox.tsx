@@ -96,7 +96,7 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
     // 2037→2026년 발행 - maisretorno.com 실제 발행일 및 Bloomberg 기준 확인).
     const issueDate = `${year - 11}-01-01`;
     const fields: Partial<BondLayoutInput> = {
-      name: `NTN-F ${NTNF_COUPON_RATE}% ${year}`,
+      name: `NTN-F ${NTNF_COUPON_RATE}% ${bond.maturityDate}`,
       issueDate,
       maturityDate: bond.maturityDate,
       couponRate: NTNF_COUPON_RATE,
@@ -157,10 +157,10 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
                   <button
                     type="button"
                     onClick={() => selectBond(b)}
-                    className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="block w-full rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <span className="block truncate">
-                      NTN-F {NTNF_COUPON_RATE}% {b.maturityDate.slice(0, 4)}
+                    <span className="block">
+                      NTN-F {NTNF_COUPON_RATE}% {b.maturityDate}
                     </span>
                     <span className="text-xs text-zinc-400">
                       {b.buyRate !== null ? `매수 ${b.buyRate}%` : ""}
