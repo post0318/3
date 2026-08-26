@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BondLayoutInput, Currency } from "@/types/bondLayout";
+import { BondLayoutInput, Currency, TaxStatus } from "@/types/bondLayout";
 import { COUNTRY_ISSUER_ALIASES, COUNTRY_ISSUER_SLUGS } from "@/lib/countryIssuerAliases";
 
 interface BondSearchItem {
@@ -151,13 +151,17 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         if (data.currency && CURRENCY_VALUES.includes(data.currency as Currency)) {
           fields.tradeCurrency = data.currency as Currency;
         }
+        // 발행자가 국가(주권) 자체이면 국채이므로 발행국 국가신용등급을 자동 반영한다.
+        const countrySlug = selectedIssuer ? COUNTRY_ISSUER_SLUGS[selectedIssuer] : undefined;
+        // 브라질 국채는 과세여부 기본값을 비과세로 반영한다(브라질채권검색과 동일).
+        if (countrySlug === "brazil") {
+          fields.taxStatus = "비과세" as TaxStatus;
+        }
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
         setStatus("OK");
         setOpen(false);
 
-        // 발행자가 국가(주권) 자체이면 국채이므로 발행국 국가신용등급을 자동 반영한다.
-        const countrySlug = selectedIssuer ? COUNTRY_ISSUER_SLUGS[selectedIssuer] : undefined;
         if (countrySlug) {
           fetch(`/api/country-rating?slug=${encodeURIComponent(countrySlug)}`)
             .then((res) => res.json())

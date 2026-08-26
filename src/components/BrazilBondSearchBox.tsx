@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BondLayoutInput, CalcBasis, Currency } from "@/types/bondLayout";
+import { BondLayoutInput, CalcBasis, Currency, TaxStatus } from "@/types/bondLayout";
 
 interface BrazilBondItem {
   maturityDate: string;
@@ -35,6 +35,7 @@ interface BrazilBondSearchBoxProps {
  * 미국채권검색의 U.S. Treasury와 동일한 취급). 발행일은 CSV에 없어,
  * NTN-F가 만기 11년 전 1월 1일에 발행되는 관행(maisretorno.com 실제
  * 발행일·Bloomberg 데이터로 확인)을 근거로 추정해 반영한다(확인 후 사용 권장).
+ * 과세여부 기본값은 "비과세"로 반영한다.
  */
 export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -103,6 +104,7 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
       calcBasis: "Business/252" as CalcBasis,
       tradeCurrency: "BRL" as Currency,
       creditRating: "RF",
+      taxStatus: "비과세" as TaxStatus,
     };
 
     onApply(fields);

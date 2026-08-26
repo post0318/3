@@ -1,5 +1,5 @@
 import { CashFlowRow } from "@/lib/cashFlowSchedule";
-import { BondPricingResult } from "@/lib/bondPricing";
+import { BondPricingResult, roundDown } from "@/lib/bondPricing";
 import { getInvestmentDays } from "@/lib/couponSchedule";
 
 const TRUST_MATURITY_LEAD_DAYS = 11;
@@ -60,19 +60,22 @@ export function computeMaturitySummary(
   const totalBackFeeEstimate =
     ((principal * (backFeeRate / 100)) / 365) * investmentDays;
 
-  const preTaxMaturityAmount = Math.trunc(
+  const preTaxMaturityAmount = roundDown(
     totalInterest +
       totalPrincipal +
       pricing.cashBalance -
-      totalBackFeeEstimate
+      totalBackFeeEstimate,
+    2
   );
 
-  const lastBackFee = Math.trunc(
-    ((principal * (backFeeRate / 100)) / 365) * TRUST_MATURITY_LEAD_DAYS
+  const lastBackFee = roundDown(
+    ((principal * (backFeeRate / 100)) / 365) * TRUST_MATURITY_LEAD_DAYS,
+    2
   );
 
-  const postTaxMaturityAmount = Math.trunc(
-    totalNetAmount + totalPrincipal + pricing.cashBalance - lastBackFee
+  const postTaxMaturityAmount = roundDown(
+    totalNetAmount + totalPrincipal + pricing.cashBalance - lastBackFee,
+    2
   );
 
   const preTaxYield =

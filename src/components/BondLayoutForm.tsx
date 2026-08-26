@@ -931,7 +931,10 @@ export function BondLayoutForm({
           <Row label="만기시 세전금액">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {formatAmount(maturitySummary.preTaxMaturityAmount)}
+                {formatSettlementAmount(
+                  maturitySummary.preTaxMaturityAmount,
+                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                )}
               </span>
             ) : (
               <ComputedValue />
@@ -949,7 +952,10 @@ export function BondLayoutForm({
           <Row label="만기시 세후금액">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {formatAmount(maturitySummary.postTaxMaturityAmount)}
+                {formatSettlementAmount(
+                  maturitySummary.postTaxMaturityAmount,
+                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                )}
               </span>
             ) : (
               <ComputedValue />
