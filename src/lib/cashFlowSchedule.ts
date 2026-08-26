@@ -105,9 +105,11 @@ export function generateFixCashFlow(
 
     let taxableIncome: number;
     if (index === 0) {
-      const preOwnedInterest =
-        pricing.faceValue * rate * maturityFxRate * pricing.accrualFraction;
-      taxableIncome = Math.trunc(interest - preOwnedInterest);
+      // couponAmount(이번 회차 이자, 브라질은 복리환산 쿠폰)와 같은 기준으로
+      // 경과분을 계산해야 "이자-경과이자"가 일치한다. 별도로 단순금리(rate)를
+      // 다시 곱해 계산하면 브라질처럼 쿠폰이 복리환산인 경우 어긋난다.
+      const preOwnedInterest = couponAmount * pricing.accrualFraction * freqPerYear;
+      taxableIncome = roundDown(interest - preOwnedInterest, 2);
     } else {
       taxableIncome = interest;
     }
