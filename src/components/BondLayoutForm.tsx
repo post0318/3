@@ -373,12 +373,14 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        {/* 업로드/잠금 상태에서도 검색창은 모두 계속 열려 있어야 다른 종목을
-            검색해 새로 반영할 수 있다(편입자산정보 등 직접 입력 필드만 잠금 적용).
-            검색으로 새 종목을 반영하면 업로드로 걸린 잠금은 풀어 직접 입력이
-            가능하게 하고, 다시 업로드하면 handleUpload에서 다시 잠근다. */}
+        {/* 업로드로 걸린 잠금(locked)에서는 검색창을 계속 쓸 수 있어야 다른
+            종목을 검색해 새로 반영할 수 있다(검색으로 새 종목을 반영하면
+            onLockedChange(false)로 잠금을 풀고, 다시 업로드하면
+            handleUpload에서 다시 잠근다). 반면 공유 링크로 연 화면
+            (lockToggleDisabled=isSharedLink)은 배포된 값을 그대로 봐야
+            하므로 검색 자체를 막는다. */}
         <BondSearchBox
-          disabled={false}
+          disabled={lockToggleDisabled}
           active={activeSearchBox === "general"}
           onApply={(fields) => {
             setActiveSearchBox("general");
@@ -387,7 +389,7 @@ export function BondLayoutForm({
           }}
         />
         <UsBondSearchBox
-          disabled={false}
+          disabled={lockToggleDisabled}
           active={activeSearchBox === "us"}
           onApply={(fields) => {
             setActiveSearchBox("us");
@@ -396,7 +398,7 @@ export function BondLayoutForm({
           }}
         />
         <KoreaBondSearchBox
-          disabled={false}
+          disabled={lockToggleDisabled}
           active={activeSearchBox === "kr"}
           onApply={(fields) => {
             setActiveSearchBox("kr");
@@ -405,7 +407,7 @@ export function BondLayoutForm({
           }}
         />
         <BrazilBondSearchBox
-          disabled={false}
+          disabled={lockToggleDisabled}
           active={activeSearchBox === "br"}
           onApply={(fields) => {
             setActiveSearchBox("br");
