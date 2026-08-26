@@ -80,16 +80,39 @@ const INVESTOR_TYPE_BY_CODE: Record<number, InvestorType> = {
 
 const FIELD_COUNT = 20;
 
-/** "1996-04-01" -> "19960401" (링크 길이를 줄이기 위한 날짜 압축) */
+const MS_PER_DAY = 86400000;
+
+/**
+ * "1996-04-01" -> 1970-01-01 기준 경과일수의 36진수 문자열(예: "7eb")로
+ * 압축해 링크 길이를 줄인다. "19960401" 같은 8자리 숫자 압축(이전 방식)
+ * 보다 훨씬 짧다.
+ */
 function stripDateDashes(iso: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.replace(/-/g, "") : iso;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y, m, d] = iso.split("-").map(Number);
+  const days = Math.floor(Date.UTC(y, m - 1, d) / MS_PER_DAY);
+  return days.toString(36);
 }
 
-/** "19960401" -> "1996-04-01" */
+/**
+ * 36진수 경과일수 -> "1996-04-01". 예전에 생성된 링크(8자리 숫자 압축)도
+ * 계속 열 수 있도록 "YYYYMMDD" 형태는 그대로 이전 방식으로 복원한다.
+ */
 function restoreDateDashes(compact: string): string {
-  return /^\d{8}$/.test(compact)
-    ? `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`
-    : compact;
+  if (/^\d{8}$/.test(compact)) {
+    return `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
+  }
+  if (/^-?[0-9a-z]+$/.test(compact)) {
+    const days = parseInt(compact, 36);
+    if (!Number.isNaN(days)) {
+      const dt = new Date(days * MS_PER_DAY);
+      const y = dt.getUTCFullYear();
+      const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(dt.getUTCDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+  }
+  return compact;
 }
 
 /**
