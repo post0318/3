@@ -1,5 +1,5 @@
-import { Redis } from "@upstash/redis";
 import { after } from "next/server";
+import { getRedis } from "@/lib/server/redis";
 
 const CSV_URL =
   "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv";
@@ -26,15 +26,6 @@ type CachedPayload = Payload & { fetchedAt: number };
 
 let memoryCache: CachedPayload | null = null;
 let refreshing = false;
-
-function getRedis(): Redis | null {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) return null;
-  try {
-    return Redis.fromEnv();
-  } catch {
-    return null;
-  }
-}
 
 function parseBrDate(s: string): string | null {
   const m = s.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -107,7 +98,7 @@ async function fetchAndParse(): Promise<Payload> {
 }
 
 /** 백그라운드에서 최신 데이터를 받아 메모리/Redis 캐시를 모두 새로 채운다(응답을 막지 않음) */
-async function refreshInBackground(redis: Redis | null) {
+async function refreshInBackground(redis: ReturnType<typeof getRedis>) {
   if (refreshing) return;
   refreshing = true;
   try {

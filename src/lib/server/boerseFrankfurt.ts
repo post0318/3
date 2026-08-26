@@ -1,9 +1,16 @@
 import crypto from "crypto";
+import { getRedis } from "@/lib/server/redis";
 
-const HOME_URL = "https://www.boerse-frankfurt.de/";
+// boerse-frankfurt.de가 live.deutsche-boerse.com으로 리브랜딩/이전되면서 옛
+// 도메인은 리다이렉트만 거쳐가는데(약 2~3초 추가 소요), 홈페이지+메인 JS
+// 번들(2MB대)을 매번 새로 받다 보니 salt 하나 얻는 데만 8초 안팎이 걸려
+// Vercel 함수 타임아웃을 넘기곤 했다. 새 도메인으로 바로 요청해 리다이렉트
+// 구간을 줄이고, 아래 Redis 캐시로 콜드스타트마다 다시 받지 않게 한다.
+const HOME_URL = "https://live.deutsche-boerse.com/";
 const DATA_BASE = "https://api.boerse-frankfurt.de/v1/data/";
 const SEARCH_BASE = "https://api.boerse-frankfurt.de/v1/search/";
 const SALT_TTL_MS = 15 * 60 * 1000;
+const REDIS_SALT_KEY = "bf-salt-v1";
 
 let cachedSalt: { value: string; fetchedAt: number } | null = null;
 
@@ -21,12 +28,35 @@ async function fetchSalt(): Promise<string> {
   return saltMatch[1];
 }
 
+/**
+ * salt는 메모리 캐시(같은 서버리스 인스턴스 안)뿐 아니라 Upstash Redis에도
+ * 캐시해, 콜드스타트로 인스턴스가 새로 뜰 때마다(=대부분의 요청) 2MB대 JS
+ * 번들을 다시 받는 8초짜리 지연이 반복되지 않게 한다(브라질채권검색 캐시와
+ * 동일한 이유).
+ */
 async function getSalt(forceRefresh = false): Promise<string> {
   if (!forceRefresh && cachedSalt && Date.now() - cachedSalt.fetchedAt < SALT_TTL_MS) {
     return cachedSalt.value;
   }
+
+  const redis = getRedis();
+  if (!forceRefresh && redis) {
+    try {
+      const cached = await redis.get<string>(REDIS_SALT_KEY);
+      if (cached) {
+        cachedSalt = { value: cached, fetchedAt: Date.now() };
+        return cached;
+      }
+    } catch {
+      // Redis 조회 실패는 무시하고 원본에서 새로 받는다.
+    }
+  }
+
   const value = await fetchSalt();
   cachedSalt = { value, fetchedAt: Date.now() };
+  if (redis) {
+    redis.set(REDIS_SALT_KEY, value, { ex: SALT_TTL_MS / 1000 }).catch(() => {});
+  }
   return value;
 }
 
