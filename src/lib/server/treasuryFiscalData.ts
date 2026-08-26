@@ -26,10 +26,15 @@ interface RawAuctionRow {
 }
 
 async function fetchByType(type: "Note" | "Bond"): Promise<TreasuryBondItem[]> {
+  const today = new Date().toISOString().slice(0, 10);
   const params = new URLSearchParams({
-    filter: `security_type:eq:${type},int_rate:gt:0`,
+    // 예전엔 발행일 최근순 상위 150건만 가져와서, 발행된 지 오래됐지만 아직
+    // 만기 전인 채권(예: 2020년 발행 30년물, 2050년 만기)이 최근 재발행분에
+    // 밀려 누락됐다. 만기일로 직접 필터링해 현재 유효한 채권 전체를 받는다
+    // (Note/Bond 각 300건 안팎, page[size]=1000이면 한 번에 다 받아짐을 확인).
+    filter: `security_type:eq:${type},int_rate:gt:0,maturity_date:gte:${today}`,
     sort: "-issue_date",
-    "page[size]": "150",
+    "page[size]": "1000",
     fields: "cusip,security_type,security_term,issue_date,maturity_date,int_rate,int_payment_frequency",
     format: "json",
   });
@@ -54,8 +59,10 @@ async function fetchByType(type: "Note" | "Bond"): Promise<TreasuryBondItem[]> {
 
 /**
  * 미국 재무부(fiscaldata.treasury.gov, 공식·무료·키 불필요) 경매 데이터에서
- * 이표부 국채(Note/Bond)의 최근 발행분을 CUSIP 기준 중복제거해 반환한다.
- * 날짜계산기준은 미국 국채 관례상 항상 ACT/ACT, 거래통화는 항상 USD다.
+ * 이표부 국채(Note/Bond) 중 만기가 지나지 않은 것 전체를 CUSIP 기준
+ * 중복제거해 반환한다(예: 2020년 발행 30년물처럼 오래됐지만 만기가 먼
+ * 채권도 포함). 날짜계산기준은 미국 국채 관례상 항상 ACT/ACT, 거래통화는
+ * 항상 USD다.
  */
 export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached.list;
