@@ -93,6 +93,14 @@ export function generateFixCashFlow(
     2
   ) * maturityFxRate;
 
+  // 화면에 보이는 현금흐름표 각 열(원금/이자/과세소득/과세표준/소득세/농특세/
+  // 세후수령액)은 수탁통화가 KRW면 정수로, 그 외는 소수점 2자리까지 절사해
+  // 표시한다. 절사 전 값을 그대로 내부 계산에 쓰면 "이자-소득세-농특세=
+  // 세후수령액" 같은 검산이 화면상 어긋나 보이므로, 표시값과 동일하게 절사한
+  // 값을 각 행에 저장하고 그 절사값으로 다음 계산을 이어간다.
+  const isKrw = input.custodyCurrency === "KRW";
+  const truncByCurrency = (n: number) => (isKrw ? Math.trunc(n) : roundDown(n, 2));
+
   const rows: CashFlowRow[] = [];
   let periodStart = contractDate;
   let carryFrontFee = frontFeeAmount;
@@ -100,8 +108,8 @@ export function generateFixCashFlow(
 
   dates.forEach((date, index) => {
     const isMaturity = toTime(date) === toTime(maturity);
-    const principal = isMaturity ? pricing.faceValue * maturityFxRate : 0;
-    const interest = couponAmount;
+    const principal = truncByCurrency(isMaturity ? pricing.faceValue * maturityFxRate : 0);
+    const interest = truncByCurrency(couponAmount);
 
     let taxableIncome: number;
     if (index === 0) {
@@ -109,7 +117,7 @@ export function generateFixCashFlow(
       // 경과분을 계산해야 "이자-경과이자"가 일치한다. 별도로 단순금리(rate)를
       // 다시 곱해 계산하면 브라질처럼 쿠폰이 복리환산인 경우 어긋난다.
       const preOwnedInterest = couponAmount * pricing.accrualFraction * freqPerYear;
-      taxableIncome = roundDown(interest - preOwnedInterest, 2);
+      taxableIncome = truncByCurrency(couponAmount - preOwnedInterest);
     } else {
       taxableIncome = interest;
     }
@@ -121,15 +129,21 @@ export function generateFixCashFlow(
     const availableBackFee = carryBackFeeResidual + backFeeThisPeriod;
     const totalDeduction = availableFrontFee + availableBackFee;
 
-    const taxBase =
-      taxableIncome > totalDeduction ? taxableIncome - totalDeduction : 0;
+    const taxBase = truncByCurrency(
+      taxableIncome > totalDeduction ? taxableIncome - totalDeduction : 0
+    );
     const incomeTaxRate = getEffectiveIncomeTaxRate(input.taxStatus);
-    const incomeTax = roundDown(taxBase * incomeTaxRate, -1);
+    const incomeTax = isKrw
+      ? roundDown(taxBase * incomeTaxRate, -1)
+      : roundDown(taxBase * incomeTaxRate, 2);
     const specialTaxRate = input.investorType === "개인" ? 0.014 : 0.028;
     const specialTax =
-      input.taxStatus === "비과세(농특세)" ? taxBase * specialTaxRate : null;
-    const netAmount =
-      interest - backFeeThisPeriod - incomeTax - (specialTax ?? 0);
+      input.taxStatus === "비과세(농특세)"
+        ? truncByCurrency(taxBase * specialTaxRate)
+        : null;
+    const netAmount = truncByCurrency(
+      interest - backFeeThisPeriod - incomeTax - (specialTax ?? 0)
+    );
 
     rows.push({
       date: date.toISOString().slice(0, 10),

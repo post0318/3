@@ -321,7 +321,15 @@ export function computeBondPricing(
   );
 
   const accruedInterest = faceValue * (rate / 100) * accrualFrac;
-  const settlementAmount = (faceValue * dirtyPrice) / redemptionBasis * fxRate;
+  const settlementAmountRaw = (faceValue * dirtyPrice) / redemptionBasis * fxRate;
+  // 화면에 보이는 결제금액(수탁통화 KRW는 정수 절사, 그 외는 소수점 2자리
+  // 절사)과 실제로 현금잔액 계산에 쓰는 값이 달라서
+  // "매수가능금액-결제금액≠현금잔액"으로 보이던 문제가 있었다. 표시값과
+  // 동일하게 미리 절사해 일치시킨다.
+  const isKrwSettlement = input.custodyCurrency === "KRW";
+  const settlementAmount = isKrwSettlement
+    ? Math.trunc(settlementAmountRaw)
+    : roundDown(settlementAmountRaw, 2);
   const cashBalance = roundDown(principal - frontFeeAmount - settlementAmount, 2);
 
   return {

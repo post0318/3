@@ -13,7 +13,8 @@ function formatAmount(n: number, isKrw: boolean): string {
   if (isKrw) {
     return Math.trunc(n).toLocaleString("ko-KR");
   }
-  return n.toLocaleString("ko-KR", {
+  const truncated = Math.trunc(n * 100) / 100;
+  return truncated.toLocaleString("ko-KR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

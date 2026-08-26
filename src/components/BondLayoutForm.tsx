@@ -41,9 +41,19 @@ function formatAmount(n: number): string {
   });
 }
 
-/** 수탁통화·거래통화 중 하나라도 KRW면 소수점 이하를 절사(trunc)해 정수로 표시한다 */
+/**
+ * 수탁통화가 KRW면 소수점 이하를 절사(trunc)해 정수로, 그 외는 소수점
+ * 2자리까지 절사(반올림 아님)해 표시한다. 계산값(bondPricing.ts의
+ * settlementAmount 등)도 동일한 절사 규칙을 쓰므로, "매수가능금액-결제금액"을
+ * 직접 계산해도 화면의 현금잔액과 일치한다.
+ */
 function formatSettlementAmount(n: number, isKrw: boolean): string {
-  return isKrw ? Math.trunc(n).toLocaleString("ko-KR") : formatAmount(n);
+  if (isKrw) return Math.trunc(n).toLocaleString("ko-KR");
+  const truncated = Math.trunc(n * 100) / 100;
+  return truncated.toLocaleString("ko-KR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 /**
@@ -792,7 +802,7 @@ export function BondLayoutForm({
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
                   pricing.settlementAmount,
-                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                  value.custodyCurrency === "KRW"
                 )}
               </span>
             ) : (
@@ -804,7 +814,7 @@ export function BondLayoutForm({
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
                   pricing.cashBalance,
-                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                  value.custodyCurrency === "KRW"
                 )}
               </span>
             ) : (
@@ -941,7 +951,7 @@ export function BondLayoutForm({
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
                   maturitySummary.preTaxMaturityAmount,
-                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                  value.custodyCurrency === "KRW"
                 )}
               </span>
             ) : (
@@ -962,7 +972,7 @@ export function BondLayoutForm({
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
                   maturitySummary.postTaxMaturityAmount,
-                  value.custodyCurrency === "KRW" || value.tradeCurrency === "KRW"
+                  value.custodyCurrency === "KRW"
                 )}
               </span>
             ) : (
