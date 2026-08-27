@@ -307,15 +307,26 @@ async function fetchFirstSseEvent(
 
     const reader = res.body.getReader();
     try {
-      const { value } = await reader.read();
-      const chunk = value ? new TextDecoder().decode(value) : "";
-      const match = chunk.match(/data:\s*(\{.*\})/);
-      if (!match) return null;
-      try {
-        return JSON.parse(match[1]) as Record<string, unknown>;
-      } catch {
-        return null;
+      // 첫 청크가 이벤트 타입 선언이나 keep-alive 주석 줄만 담고 있을 수 있어
+      // (실제로 겪음: 한 번만 읽으면 data: 줄을 못 찾는 경우가 있었다), 실제
+      // "data:" 줄이 나올 때까지 여러 청크를 이어붙여가며 읽는다. 타임아웃은
+      // 바깥의 AbortController가 그대로 지켜준다.
+      let buffer = "";
+      const decoder = new TextDecoder();
+      for (let i = 0; i < 20; i++) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const match = buffer.match(/data:\s*(\{.*\})/);
+        if (match) {
+          try {
+            return JSON.parse(match[1]) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        }
       }
+      return null;
     } finally {
       await reader.cancel().catch(() => {});
     }
