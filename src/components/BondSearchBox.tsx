@@ -214,10 +214,26 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         } else if (countrySlug === "brazil") {
           fields.calcBasis = "미국 30/360" as CalcBasis;
           fields.couponFrequency = "6개월" as CouponFrequency;
+        } else {
+          // 이 API는 국가(주권) 발행자가 아니면 날짜계산기준/이자지급주기를
+          // 확정적으로 알 방법이 없다(회사채마다 다름). 위 두 경우가 아니면
+          // 이전에 선택했던 국채의 값(예: ACT/ACT)이 남지 않도록 앱 기본값
+          // (미국 30/360·6개월)으로 되돌린다. 실제 종목의 진짜 기준과 다를
+          // 수 있으니 필요시 직접 확인/수정해야 한다.
+          fields.calcBasis = "미국 30/360" as CalcBasis;
+          fields.couponFrequency = "6개월" as CouponFrequency;
         }
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
-        setStatus("OK");
+        // 국채(미국/브라질)는 날짜계산기준이 시장 관행상 확정적이라 그대로
+        // 믿을 수 있지만, 그 외 발행자(회사채 등)는 API가 정보를 안 줘
+        // 앱 기본값(미국 30/360·6개월)을 채워 넣은 것뿐이라 실제 종목의
+        // 진짜 기준과 다를 수 있다는 걸 알려준다.
+        setStatus(
+          countrySlug === "united-states" || countrySlug === "brazil"
+            ? "OK"
+            : "날짜계산기준/이자지급주기는 기본값(미국 30/360·6개월)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
+        );
         setOpen(false);
 
         if (countrySlug) {
