@@ -179,8 +179,8 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     // 비과세 기본값은 브라질 국채(브라질채권검색/종목검색의 브라질 발행자)만
     // 대상이므로, 한국채권검색에서는 이전 선택 값이 남지 않도록 일반과세로 되돌린다.
     fields.taxStatus = "일반과세" as TaxStatus;
-    // 이 데이터소스(data.go.kr)에는 매수금리(현재 시장 수익률) 정보가 없어,
-    // 다른 종목검색(예: 브라질채권검색)에서 반영된 값이 남지 않도록 비운다.
+    // 매수금리는 일단 비워 다른 종목검색(예: 브라질채권검색)에서 반영된 값이
+    // 남지 않게 하고, 아래에서 금융위원회_채권시세정보(종가수익률)로 갱신한다.
     fields.purchaseYield = "";
 
     onApply(fields);
@@ -188,6 +188,16 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     setRatingSearchName(isTreasury ? null : bond.name);
     setNameCopied(false);
     setOpen(false);
+
+    // 매수금리: 한국거래소 채권시세정보의 가장 최근 종가수익률을 반영한다.
+    fetch(`/api/kr-bond-yield?isin=${encodeURIComponent(bond.isin)}`)
+      .then((res) => res.json())
+      .then((data: { rate?: number | null }) => {
+        if (typeof data.rate === "number") {
+          onApply({ purchaseYield: String(data.rate) });
+        }
+      })
+      .catch(() => {});
 
     // 원화표시 국고채권은 RF 그대로 두고, 외화표시(예: USD) 국고채권만 실제
     // 대한민국 국가신용등급으로 갱신한다.

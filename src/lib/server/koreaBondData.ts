@@ -1,5 +1,7 @@
 const BASE_URL =
   "https://apis.data.go.kr/1160100/GetBondIssuInfoService_V2/getBondBasiInfo_V2";
+const PRICE_URL =
+  "https://apis.data.go.kr/1160100/service/GetBondSecuritiesInfoService/getBondPriceInfo";
 
 export interface KoreaBondItem {
   isin: string;
@@ -102,4 +104,30 @@ export async function searchKoreaBonds(keyword: string): Promise<KoreaBondItem[]
     if (!byIsin.has(item.isin)) byIsin.set(item.isin, item);
   }
   return [...byIsin.values()];
+}
+
+/**
+ * 금융위원회_채권시세정보(data.go.kr, 한국거래소 원천 데이터)로 개별 ISIN의
+ * 가장 최근 종가수익률(clprBnfRt)을 조회한다. 국채전문유통시장(국고채권 등,
+ * mrktCtg="KTS")·일반채권시장·소액채권시장 전 종목을 포괄한다(실제 조회로
+ * 확인). numOfRows=1로 받으면 기준일자(basDt) 내림차순 첫 행이 최신값이다
+ * (별도 정렬 파라미터 없이도 최신일자가 먼저 나옴을 확인).
+ */
+export async function fetchKoreaBondYield(isin: string): Promise<number | null> {
+  const serviceKey = process.env.DATA_GO_KR_BOND_SERVICE_KEY;
+  if (!serviceKey) return null;
+
+  const url =
+    `${PRICE_URL}?serviceKey=${serviceKey}` +
+    `&numOfRows=1&pageNo=1&resultType=json&isinCd=${encodeURIComponent(isin)}`;
+
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const json = (await res.json()) as {
+    response?: { body?: { items?: { item?: { clprBnfRt?: string }[] } } };
+  };
+  const row = json.response?.body?.items?.item?.[0];
+  if (!row?.clprBnfRt) return null;
+  const rate = parseFloat(row.clprBnfRt);
+  return Number.isNaN(rate) ? null : rate;
 }
