@@ -132,7 +132,8 @@ async function safeJson(res: Response): Promise<unknown> {
 
 async function withSaltRetry<T>(
   run: (salt: string) => Promise<{ res: Response; data: T }>,
-  label: string
+  label: string,
+  overallTimeoutMs: number = FETCH_TIMEOUT_MS * 2
 ): Promise<T> {
   return withOverallTimeout(
     async () => {
@@ -147,25 +148,30 @@ async function withSaltRetry<T>(
       }
       return data;
     },
-    FETCH_TIMEOUT_MS * 2,
+    overallTimeoutMs,
     label
   );
 }
 
 async function dataRequest(
   fn: string,
-  params: Record<string, string>
+  params: Record<string, string>,
+  overallTimeoutMs?: number
 ): Promise<Record<string, unknown> | null> {
-  return withSaltRetry(async (salt) => {
-    const url = `${DATA_BASE}${fn}?${new URLSearchParams(params)}`;
-    const res = await fetchWithTimeout(url, {
-      headers: {
-        ...buildSecurityHeaders(url, salt),
-        accept: "application/json, text/plain, */*",
-      },
-    });
-    return { res, data: (await safeJson(res)) as Record<string, unknown> | null };
-  }, fn);
+  return withSaltRetry(
+    async (salt) => {
+      const url = `${DATA_BASE}${fn}?${new URLSearchParams(params)}`;
+      const res = await fetchWithTimeout(url, {
+        headers: {
+          ...buildSecurityHeaders(url, salt),
+          accept: "application/json, text/plain, */*",
+        },
+      });
+      return { res, data: (await safeJson(res)) as Record<string, unknown> | null };
+    },
+    fn,
+    overallTimeoutMs
+  );
 }
 
 async function searchRequest(
@@ -263,35 +269,6 @@ export interface BondDetail {
   lastPriceYield: number | null;
 }
 
-/**
- * quote_box 응답에서 수익률로 보이는 숫자 필드를 후보 키 목록으로 찾는다.
- * 실제 필드명이 검증되지 않았으므로(사내망에서 api.boerse-frankfurt.de를
- * 직접 호출해 확인할 수 없었음) 알려진 후보를 순서대로 시도한다. 전부
- * 실패하면 quote_box 원본을 서버 로그에 남겨, 배포 환경에서 실제 키를
- * 확인한 뒤 아래 후보 배열에 추가할 수 있게 한다.
- */
-function pickYield(
-  data: Record<string, unknown> | null | undefined,
-  candidates: string[]
-): number | null {
-  if (!data) return null;
-  for (const key of candidates) {
-    const value = data[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-  }
-  return null;
-}
-
-const BID_YIELD_KEYS = ["bidYield", "yieldBid", "yieldOnBid", "bidSideYield"];
-const ASK_YIELD_KEYS = ["askYield", "yieldAsk", "yieldOnAsk", "askSideYield"];
-const LAST_YIELD_KEYS = [
-  "lastPriceYield",
-  "yield",
-  "currentYield",
-  "yieldLastPrice",
-  "yieldOnLastPrice",
-];
-
 export interface BondQuote {
   bidYield: number | null;
   askYield: number | null;
@@ -299,30 +276,81 @@ export interface BondQuote {
 }
 
 /**
- * ISIN+MIC로 현재가/호가 정보(quote_box)를 조회해 매수(ask)/매도(bid)/최종가
- * 기준 수익률을 뽑아낸다. boerse-frankfurt.de가 사이트에서 "최종가와 매수호가
- * 기준 수익률을 함께 제공한다"고 밝힌 것에 맞춰 최소 이 두 값을 기대한다.
- * 후보 필드명이 전부 안 맞으면 null들을 반환하고 원본을 로그로 남긴다.
+ * 실제 사이트 JS 번들(main.*.js)에서 확인한 진짜 엔드포인트는 quote_box가
+ * 아니라 price_information이었다(quote_box는 애초에 검증된 적 없는 추측값 —
+ * 이전 패치 주석에도 명시돼 있었다). 게다가 이 엔드포인트는 한 번 응답하고
+ * 끝나는 일반 REST가 아니라 Server-Sent Events(SSE) 스트림이라, 응답 헤더는
+ * 바로 오지만 body는 실시간 시세가 나올 때마다 계속 이어진다. res.text()로
+ * 전체 body가 끝나기를 기다리면 스트림이 끝나지 않으니 영원히 대기하게
+ * 되는데, 이게 Vercel에서 상세조회가 응답 없이 멈추던 진짜 원인이었다
+ * (개인 PC의 curl 테스트에서 "빨리 성공"한 것처럼 보인 것도 --max-time으로
+ * 강제로 끊어서 첫 이벤트만 받혔기 때문— 사실은 같은 문제였다). 첫
+ * 이벤트(data: 한 줄)만 읽고 바로 스트림을 끊는다.
+ *
+ * Accept 헤더는 다른 요청들과 같은 값(application/json, text/plain 등 포함)을
+ * 쓰면 406이 난다 — 이 엔드포인트는 모든 타입 허용(와일드카드)을 요구한다(직접 확인).
+ */
+async function fetchFirstSseEvent(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number
+): Promise<Record<string, unknown> | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      headers: { ...headers, accept: "*/*" },
+      signal: controller.signal,
+    });
+    if (!res.ok || !res.body) return null;
+
+    const reader = res.body.getReader();
+    try {
+      const { value } = await reader.read();
+      const chunk = value ? new TextDecoder().decode(value) : "";
+      const match = chunk.match(/data:\s*(\{.*\})/);
+      if (!match) return null;
+      try {
+        return JSON.parse(match[1]) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+    }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const PRICE_FETCH_TIMEOUT_MS = 4000;
+
+/**
+ * ISIN+MIC로 현재가(price_information, lastPrice 등)를 조회한다. 이
+ * 엔드포인트는 가격만 주고 수익률(yield)은 직접 주지 않는다(실제 확인:
+ * lastPrice 필드만 있고 yield류 필드 없음). 가격→수익률 환산(채권 계산)은
+ * 아직 구현하지 않아 지금은 값을 로그로만 남기고 매수금리는 채우지 않는다.
+ * 그래도 실시간 스트림 특성상 언제든 다시 멈출 수 있어 짧은 시간 안에
+ * 포기하도록 타임아웃을 짧게(4초) 둔다 — 응답 없음이 곧 "이 종목은 못 채운다"는
+ * 뜻이라 오래 기다려도 얻는 게 없다.
  */
 export async function getBondQuote(isin: string, mic: string): Promise<BondQuote> {
-  const quote = await dataRequest("quote_box", { isin, mic });
+  const result: BondQuote = { bidYield: null, askYield: null, lastPriceYield: null };
 
-  const result: BondQuote = {
-    bidYield: pickYield(quote, BID_YIELD_KEYS),
-    askYield: pickYield(quote, ASK_YIELD_KEYS),
-    lastPriceYield: pickYield(quote, LAST_YIELD_KEYS),
-  };
+  const salt = await getSalt().catch(() => null);
+  if (!salt) return result;
 
-  if (
-    quote &&
-    result.bidYield === null &&
-    result.askYield === null &&
-    result.lastPriceYield === null
-  ) {
-    console.warn(
-      `[boerseFrankfurt] quote_box(${isin})에서 수익률 후보 필드를 찾지 못했습니다. 원본:`,
-      JSON.stringify(quote)
-    );
+  const url = `${DATA_BASE}price_information?${new URLSearchParams({ isin, mic })}`;
+  const price = await fetchFirstSseEvent(
+    url,
+    buildSecurityHeaders(url, salt),
+    PRICE_FETCH_TIMEOUT_MS
+  );
+
+  if (price) {
+    console.log(`[boerseFrankfurt] price_information(${isin}):`, JSON.stringify(price));
   }
 
   return result;
@@ -339,13 +367,13 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
 
   const master = await dataRequest("master_data_bond", { isin, mic });
 
-  // 수익률 조회(quote_box)는 부가 정보라, 실패해도 나머지(발행일/만기일 등)
-  // 조회는 살린다. 실제 배포 환경(Vercel)에서 quote_box만 응답이 없어(로그로
-  // 확인, 개인 PC에서는 정상 응답) withOverallTimeout이 만료돼 항상
-  // null들로 폴백하는 상태다 — 원인은 boerse-frankfurt 쪽 네트워크 처리로
-  // 보이며 우리 쪽에서 더 손쓸 방법은 없어 현재 상태로 둔다.
+  // 현재가 조회는 부가 정보라, 실패해도 나머지(발행일/만기일 등) 조회는
+  // 살린다. price_information이 SSE 스트림이라는 걸 확인해 4초 안에 첫
+  // 이벤트만 읽고 빠져나오도록 고쳐서 더 이상 상세조회 전체가 멈추지는
+  // 않는다(getBondQuote 주석 참고). 다만 가격→수익률 환산은 아직 없어
+  // bidYield/askYield/lastPriceYield는 항상 null이다.
   const quote = await getBondQuote(isin, mic).catch((err) => {
-    console.warn(`[boerseFrankfurt] quote_box(${isin}) 조회 실패:`, err);
+    console.warn(`[boerseFrankfurt] price_information(${isin}) 조회 실패:`, err);
     return { bidYield: null, askYield: null, lastPriceYield: null } as BondQuote;
   });
 
