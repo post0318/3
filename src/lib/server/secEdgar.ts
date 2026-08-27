@@ -168,6 +168,7 @@ const KNOWN_LABELS = [
   "Settlement Date",
   "Denominations:",
   "Ratings:",
+  "Maturity Date:",
   "Maturity:",
   "Principal Amount:",
   "Public Offering Price:",
@@ -302,7 +303,13 @@ function extractSettlementDate(text: string): string | null {
 
 /** 트랜치 하나가 완결된 블록(Issuer:부터 다음 Issuer: 전까지)을 통째로 파싱한다 */
 function parseTrancheBlock(block: string): Omit<BondTranche, "label"> {
-  const maturityRaw = section(block, "Maturity:", otherLabels("Maturity:")) ?? "";
+  // 발행사마다 "Maturity:"(예: Meta) 또는 "Maturity Date:"(예: Microsoft,
+  // Google)로 라벨이 다르다(실제 두 문서 원문으로 확인). 후자를 못 찾으면
+  // 표면이율 말고는 아무것도 못 채우는 문제가 있었다.
+  const maturityRaw =
+    section(block, "Maturity Date:", otherLabels("Maturity Date:")) ??
+    section(block, "Maturity:", otherLabels("Maturity:")) ??
+    "";
   const couponRaw =
     section(block, "Coupon (Interest Rate):", otherLabels("Coupon (Interest Rate):")) ??
     section(block, "Coupon:", otherLabels("Coupon:")) ??
@@ -351,7 +358,10 @@ export function parseFwp(html: string): FwpParseResult {
     return { tranches, currency, issuer: extractIssuer(blocks[0]) };
   }
 
-  const maturityRaw = section(text, "Maturity:", otherLabels("Maturity:")) ?? "";
+  const maturityRaw =
+    section(text, "Maturity Date:", otherLabels("Maturity Date:")) ??
+    section(text, "Maturity:", otherLabels("Maturity:")) ??
+    "";
   const trancheLabels = findTrancheLabels(maturityRaw);
   const couponRaw =
     section(text, "Coupon (Interest Rate):", otherLabels("Coupon (Interest Rate):")) ??
