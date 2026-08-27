@@ -101,6 +101,33 @@ function formatUsDate(iso: string): string {
   return m ? `${m[2]}/${m[3]}/${m[1]}` : iso;
 }
 
+/**
+ * 9자리 CUSIP -> 12자리 ISIN(ISO 6166) 변환. "US" + CUSIP + 체크숫자(Luhn).
+ * 미국국채는 CUSIP만 갖고 있는데, boerse-frankfurt는 ISIN으로 조회해야 해서
+ * (실제 검증: US912810US5 -> ISIN US912810US59로 정확히 상장돼 있음 확인)
+ * 매수금리 추정에 필요한 변환이다.
+ */
+function isinFromCusip(cusip: string): string {
+  const base = `US${cusip}`;
+  let digits = "";
+  for (const ch of base) {
+    digits += /[0-9]/.test(ch) ? ch : (ch.charCodeAt(0) - 55).toString();
+  }
+  let sum = 0;
+  let alt = true;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = Number(digits[i]);
+    if (alt) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    alt = !alt;
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return `${base}${checkDigit}`;
+}
+
 interface UsBondSearchBoxProps {
   disabled: boolean;
   active: boolean;
@@ -287,9 +314,10 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     // 비과세 기본값은 브라질 국채만 대상이므로, 미국채권검색에서는 이전 선택
     // 값이 남지 않도록 일반과세로 되돌린다.
     fields.taxStatus = "일반과세" as TaxStatus;
-    // 이 데이터소스(SEC EDGAR FWP/fiscaldata.treasury.gov)에는 매수금리
-    // (현재 시장 수익률) 정보가 없어, 다른 종목검색(예: 브라질채권검색)에서
-    // 반영된 값이 남지 않도록 0으로 되돌린다.
+    // 이 데이터소스(SEC EDGAR FWP/fiscaldata.treasury.gov) 자체에는 매수금리
+    // (현재 시장 수익률) 정보가 없다. 일단 0으로 비워(다른 검색에서 반영된
+    // 값이 남지 않도록) 아래에서 boerse-frankfurt 현재가 기반 추정치로
+    // 갱신한다.
     fields.purchaseYield = "0";
     if (tranche.calcBasis && CALC_BASIS_VALUES.includes(tranche.calcBasis as CalcBasis)) {
       fields.calcBasis = tranche.calcBasis as CalcBasis;
@@ -302,6 +330,26 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
 
     onApply(fields);
     setRatingLink(isTreasury ? null : FINRA_FIXED_INCOME_URL);
+
+    // 매수금리: boerse-frankfurt 현재가 기반 추정치(종목검색과 동일한
+    // 로직)로 갱신한다. 회사채(tranche.isin)는 이미 진짜 ISIN이고, 국채는
+    // CUSIP만 있어 표준 규칙으로 ISIN을 계산해 넘긴다.
+    if (tranche.isin && tranche.couponRate !== null && tranche.maturityDate) {
+      const isin = isTreasury ? isinFromCusip(tranche.isin) : tranche.isin;
+      const params = new URLSearchParams({
+        isin,
+        couponRate: String(tranche.couponRate),
+        maturityDate: tranche.maturityDate,
+      });
+      fetch(`/api/us-bond-yield?${params}`)
+        .then((res) => res.json())
+        .then((data: { rate?: number | null }) => {
+          if (typeof data.rate === "number") {
+            onApply({ purchaseYield: String(data.rate) });
+          }
+        })
+        .catch(() => {});
+    }
 
     const missing: string[] = [];
     if (!tranche.rating) missing.push("신용등급");
@@ -412,19 +460,19 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
                               onClick={() => selectBond(b)}
                               className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             >
-                              {b.label || `만기 ${b.maturityDate ?? "-"}`}
                               {/* 회사채(kind: "sec")는 label이 "2031 Notes"처럼
                                   공시서류 원문 트랜치명이라 연도만 있고 월이
                                   없어, 같은 해에 만기가 다른 트랜치를 구분할
-                                  수 없었다(실제 확인). 만기일(미국식 MM/DD/
-                                  YYYY)을 짧게 이어붙인다. 국채(kind:
-                                  "treasury")는 label 자체에 이미 쿠폰이
-                                  포함돼("29-Year 6-Month 2.375% 2056") 있어
-                                  다시 붙이면 "2.375% ... · 2.375%"처럼 중복
-                                  표시된다. */}
-                              {b.kind === "sec" && b.maturityDate
-                                ? ` · ${formatUsDate(b.maturityDate)}`
-                                : ""}
+                                  수 없었다(실제 확인). label 대신 만기일
+                                  (미국식 MM/DD/YYYY)로 바로 보여준다. 국채
+                                  (kind: "treasury")는 label 자체에 이미
+                                  쿠폰까지 포함돼("29-Year 6-Month 2.375%
+                                  2056") 있어 그대로 쓴다. */}
+                              {b.kind === "sec"
+                                ? b.maturityDate
+                                  ? formatUsDate(b.maturityDate)
+                                  : (b.label || "만기 -")
+                                : b.label || `만기 ${b.maturityDate ?? "-"}`}
                               {b.kind === "sec" && b.couponRate !== null
                                 ? ` · ${b.couponRate}%`
                                 : ""}

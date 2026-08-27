@@ -403,6 +403,31 @@ export async function getBondQuote(
   return result;
 }
 
+/**
+ * ISIN으로 boerse-frankfurt 상장 여부(거래소 MIC)만 확인한 뒤, 표면이율/
+ * 만기일은 호출부가 이미 알고 있는 값을 그대로 써서 현재가 기반 수익률을
+ * 추정한다. master_data_bond의 cupon 필드가 국채는 비어있는 경우가 있어
+ * (실제 확인: 미국국채 CUSIP 912810US5 -> ISIN US912810US59, master_data_
+ * bond가 cupon:null 반환) getBondDetail처럼 그 필드에 의존하면 안 된다.
+ * 미국채권검색(SEC EDGAR 회사채는 이미 ISIN을 갖고 있고, 국채는 CUSIP에서
+ * 표준 규칙으로 ISIN을 계산해 넘김)에서 매수금리를 채우는 데 쓴다.
+ */
+export async function getYieldEstimateByIsin(
+  isin: string,
+  couponRate: number,
+  maturityDate: string
+): Promise<number | null> {
+  const info = await dataRequest("instrument_information", { isin });
+  const mics = info?.mics;
+  const mic =
+    (typeof info?.defaultMic === "string" ? info.defaultMic : undefined) ??
+    (Array.isArray(mics) && typeof mics[0] === "string" ? mics[0] : undefined);
+  if (!mic) return null;
+
+  const quote = await getBondQuote(isin, mic, couponRate, maturityDate);
+  return quote.lastPriceYield;
+}
+
 /** ISIN으로 발행일/만기일/표면이율/거래통화(+상세페이지 slug)와 매수/매도 수익률을 조회한다 */
 export async function getBondDetail(isin: string): Promise<BondDetail> {
   const info = await dataRequest("instrument_information", { isin });
