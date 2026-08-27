@@ -407,7 +407,13 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
                               className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             >
                               {b.label || `만기 ${b.maturityDate ?? "-"}`}
-                              {b.couponRate !== null ? ` · ${b.couponRate}%` : ""}
+                              {/* 국채(kind: "treasury")는 label 자체에 이미
+                                  쿠폰이 포함돼("29-Year 6-Month 2.375% 2056")
+                                  있어 다시 붙이면 "2.375% ... · 2.375%"처럼
+                                  중복 표시된다. */}
+                              {b.kind === "sec" && b.couponRate !== null
+                                ? ` · ${b.couponRate}%`
+                                : ""}
                               <span className="ml-1 text-xs text-zinc-400">{b.isin}</span>
                             </button>
                           </li>
