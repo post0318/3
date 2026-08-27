@@ -10,7 +10,13 @@ import { impliedYieldFromPrice } from "@/lib/bondPricing";
 const HOME_URL = "https://live.deutsche-boerse.com/";
 const DATA_BASE = "https://api.boerse-frankfurt.de/v1/data/";
 const SEARCH_BASE = "https://api.boerse-frankfurt.de/v1/search/";
+/** 같은 서버리스 인스턴스 안 메모리 캐시 신선도. 짧게 둬도 아래 Redis가 대부분 받아준다 */
 const SALT_TTL_MS = 15 * 60 * 1000;
+/** Redis에 salt를 얼마나 오래 들고 있을지. 접속이 뜸해도(하루 1회 정도의
+ *  Vercel Cron만 있어도) 콜드스타트 첫 요청이 8초짜리 홈페이지+JS 번들
+ *  재요청을 떠안지 않도록 훨씬 길게 잡는다. salt가 실제로 바뀌어도
+ *  withSaltRetry가 401/403에서 자동으로 다시 받으므로 안전하다. */
+const REDIS_SALT_TTL_SECONDS = 24 * 60 * 60;
 const REDIS_SALT_KEY = "bf-salt-v1";
 
 let cachedSalt: { value: string; fetchedAt: number } | null = null;
@@ -79,7 +85,7 @@ async function fetchSalt(): Promise<string> {
  * 번들을 다시 받는 8초짜리 지연이 반복되지 않게 한다(브라질채권검색 캐시와
  * 동일한 이유).
  */
-async function getSalt(forceRefresh = false): Promise<string> {
+export async function getSalt(forceRefresh = false): Promise<string> {
   if (!forceRefresh && cachedSalt && Date.now() - cachedSalt.fetchedAt < SALT_TTL_MS) {
     return cachedSalt.value;
   }
@@ -100,7 +106,7 @@ async function getSalt(forceRefresh = false): Promise<string> {
   const value = await fetchSalt();
   cachedSalt = { value, fetchedAt: Date.now() };
   if (redis) {
-    redis.set(REDIS_SALT_KEY, value, { ex: SALT_TTL_MS / 1000 }).catch(() => {});
+    redis.set(REDIS_SALT_KEY, value, { ex: REDIS_SALT_TTL_SECONDS }).catch(() => {});
   }
   return value;
 }

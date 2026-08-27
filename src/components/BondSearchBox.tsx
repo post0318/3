@@ -147,7 +147,11 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
       .then((res) => res.json())
       .then((data: { bonds?: BondSearchItem[] }) => {
         const all = Array.isArray(data.bonds) ? data.bonds : [];
-        setBonds(all.filter((b) => isNotMatured(b.name)));
+        // 쿠폰이 없는 종목(coupon: null)은 대부분 미국 단기국채(T-Bill) 같은
+        // 무이표 할인채다. 이 앱의 현금흐름 계산은 이표 지급을 전제로 하고
+        // 있어(미국채권검색도 같은 이유로 T-Bill을 아예 조회 대상에서
+        // 제외함) 정확히 계산할 수 없으므로 목록에서도 걸러낸다.
+        setBonds(all.filter((b) => isNotMatured(b.name) && b.coupon !== null));
       })
       .catch(() => setStatus("채권 목록을 불러오지 못했습니다."))
       .finally(() => setLoadingBonds(false));
