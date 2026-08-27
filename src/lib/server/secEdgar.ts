@@ -284,6 +284,17 @@ function extractRating(text: string): string | null {
     }
   }
 
+  // "Moody's, Aaa (negative outlook); S&P, AAA (stable outlook)" 형태
+  // (기관명이 등급보다 먼저 나옴 — 실제 확인: Microsoft)
+  for (const m of ratingsRaw.matchAll(
+    /(Moody|Poor|Fitch)[^,;()]*,\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
+  )) {
+    const agency = classify(m[1]);
+    if (agency && !results.some((r) => r.startsWith(`${agency}:`))) {
+      results.push(`${agency}: ${m[2]}`);
+    }
+  }
+
   return results.length > 0 ? results.join(" / ") : null;
 }
 
