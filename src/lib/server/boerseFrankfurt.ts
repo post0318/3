@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getRedis } from "@/lib/server/redis";
+import { impliedYieldFromPrice } from "@/lib/bondPricing";
 
 // boerse-frankfurt.de가 live.deutsche-boerse.com으로 리브랜딩/이전되면서 옛
 // 도메인은 리다이렉트만 거쳐가는데(약 2~3초 추가 소요), 홈페이지+메인 JS
@@ -328,29 +329,64 @@ async function fetchFirstSseEvent(
 const PRICE_FETCH_TIMEOUT_MS = 4000;
 
 /**
- * ISIN+MIC로 현재가(price_information, lastPrice 등)를 조회한다. 이
+ * ISIN+MIC로 현재가(price_information, lastPrice/기준시각)를 조회한다. 이
  * 엔드포인트는 가격만 주고 수익률(yield)은 직접 주지 않는다(실제 확인:
- * lastPrice 필드만 있고 yield류 필드 없음). 가격→수익률 환산(채권 계산)은
- * 아직 구현하지 않아 지금은 값을 로그로만 남기고 매수금리는 채우지 않는다.
- * 그래도 실시간 스트림 특성상 언제든 다시 멈출 수 있어 짧은 시간 안에
- * 포기하도록 타임아웃을 짧게(4초) 둔다 — 응답 없음이 곧 "이 종목은 못 채운다"는
- * 뜻이라 오래 기다려도 얻는 게 없다.
+ * lastPrice 필드만 있고 yield류 필드 없음). 실시간 스트림 특성상 언제든
+ * 다시 멈출 수 있어 짧은 시간 안에 포기하도록 타임아웃을 짧게(4초) 둔다 —
+ * 응답 없음이 곧 "이 종목은 못 채운다"는 뜻이라 오래 기다려도 얻는 게 없다.
  */
-export async function getBondQuote(isin: string, mic: string): Promise<BondQuote> {
-  const result: BondQuote = { bidYield: null, askYield: null, lastPriceYield: null };
-
+async function getLastPrice(
+  isin: string,
+  mic: string
+): Promise<{ price: number; asOf: string | null } | null> {
   const salt = await getSalt().catch(() => null);
-  if (!salt) return result;
+  if (!salt) return null;
 
   const url = `${DATA_BASE}price_information?${new URLSearchParams({ isin, mic })}`;
-  const price = await fetchFirstSseEvent(
+  const data = await fetchFirstSseEvent(
     url,
     buildSecurityHeaders(url, salt),
     PRICE_FETCH_TIMEOUT_MS
   );
+  const price = data?.lastPrice;
+  if (typeof price !== "number") return null;
+  const asOf = typeof data?.timestampLastPrice === "string" ? data.timestampLastPrice : null;
+  return { price, asOf };
+}
 
-  if (price) {
-    console.log(`[boerseFrankfurt] price_information(${isin}):`, JSON.stringify(price));
+/**
+ * ISIN+MIC로 현재가를 조회해 매수/만기수익률을 추정한다. boerse-frankfurt
+ * API는 가격(lastPrice)만 주고 수익률/날짜계산기준/이자지급주기는 안 줘서
+ * (실제 확인: master_data_bond의 interestPaymentPeriod가 여러 종목에서
+ * 계속 null), 채권세상 자체의 기본 날짜계산기준(미국 30/360 —
+ * bondPricing.ts의 computeCleanPrice가 애초에 이 기준 고정)과 기본
+ * 이자지급주기(6개월)를 가정해 impliedYieldFromPrice로 역산한다. 실제
+ * 종목의 기준이 다르면 오차가 있을 수 있는 추정치다. bidYield/askYield는
+ * 이 API에 대응하는 데이터가 없어 항상 null이다.
+ */
+export async function getBondQuote(
+  isin: string,
+  mic: string,
+  couponRate: number | null,
+  maturityDate: string | null
+): Promise<BondQuote> {
+  const result: BondQuote = { bidYield: null, askYield: null, lastPriceYield: null };
+
+  const last = await getLastPrice(isin, mic);
+  if (!last || couponRate === null || !maturityDate) return result;
+
+  const maturity = new Date(maturityDate);
+  const settlement = last.asOf ? new Date(last.asOf) : new Date();
+  const yieldEstimate = impliedYieldFromPrice(
+    settlement,
+    maturity,
+    couponRate / 100,
+    last.price,
+    100,
+    "6개월"
+  );
+  if (yieldEstimate !== null) {
+    result.lastPriceYield = Math.round(yieldEstimate * 100000) / 1000;
   }
 
   return result;
@@ -366,13 +402,15 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
   if (!mic) throw new Error("거래소(MIC) 정보를 찾을 수 없습니다.");
 
   const master = await dataRequest("master_data_bond", { isin, mic });
+  const couponRate = typeof master?.cupon === "number" ? master.cupon : null;
+  const maturityDate = typeof master?.maturity === "string" ? master.maturity : null;
 
   // 현재가 조회는 부가 정보라, 실패해도 나머지(발행일/만기일 등) 조회는
   // 살린다. price_information이 SSE 스트림이라는 걸 확인해 4초 안에 첫
   // 이벤트만 읽고 빠져나오도록 고쳐서 더 이상 상세조회 전체가 멈추지는
-  // 않는다(getBondQuote 주석 참고). 다만 가격→수익률 환산은 아직 없어
-  // bidYield/askYield/lastPriceYield는 항상 null이다.
-  const quote = await getBondQuote(isin, mic).catch((err) => {
+  // 않는다(getBondQuote 주석 참고). lastPriceYield는 기본 날짜계산기준/
+  // 이자지급주기 가정에 기반한 추정치다.
+  const quote = await getBondQuote(isin, mic, couponRate, maturityDate).catch((err) => {
     console.warn(`[boerseFrankfurt] price_information(${isin}) 조회 실패:`, err);
     return { bidYield: null, askYield: null, lastPriceYield: null } as BondQuote;
   });
@@ -380,8 +418,8 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
   return {
     isin,
     issueDate: typeof master?.issueDate === "string" ? master.issueDate : null,
-    maturityDate: typeof master?.maturity === "string" ? master.maturity : null,
-    couponRate: typeof master?.cupon === "number" ? master.cupon : null,
+    maturityDate,
+    couponRate,
     currency: typeof master?.issueCurrency === "string" ? master.issueCurrency : null,
     slug: typeof info?.slug === "string" ? info.slug : null,
     bidYield: quote.bidYield,

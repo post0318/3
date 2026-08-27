@@ -160,6 +160,47 @@ export function computeCleanPrice(
   );
 }
 
+/**
+ * computeCleanPrice의 역산(가격→수익률). 가격은 수익률에 대해 단조감소이므로
+ * 이분탐색으로 목표가(clean price)에 대응하는 연수익률을 찾는다. 종목검색
+ * (Frankfurt) 상세조회에서 lastPrice만 주고 수익률은 안 줄 때, 이 앱의
+ * 기본 날짜계산기준(미국 30/360 — computeCleanPrice 자체가 이 기준 고정)과
+ * 기본 이자지급주기(6개월)를 가정해 근사 수익률을 구하는 용도. 실제 채권의
+ * 날짜계산기준/주기가 다르면 오차가 있을 수 있는 추정치다.
+ */
+export function impliedYieldFromPrice(
+  settlement: Date,
+  maturity: Date,
+  annualRate: number,
+  targetPrice: number,
+  redemption: number,
+  frequency: CouponFrequency
+): number | null {
+  if (settlement >= maturity) return null;
+
+  let lo = -0.5;
+  let hi = 2;
+  const priceAt = (y: number) =>
+    computeCleanPrice(settlement, maturity, annualRate, y, redemption, frequency);
+
+  const priceLo = priceAt(lo);
+  const priceHi = priceAt(hi);
+  if (priceLo === null || priceHi === null) return null;
+  if (!(priceLo >= targetPrice && targetPrice >= priceHi)) return null;
+
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    const priceMid = priceAt(mid);
+    if (priceMid === null) return null;
+    if (priceMid > targetPrice) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return (lo + hi) / 2;
+}
+
 /** settlement 이후 다음 이표일부터 만기까지의 명목상(달력) 이표일 목록 */
 function brazilCouponDates(
   settlement: Date,
