@@ -233,6 +233,7 @@ const KNOWN_LABELS = [
   "Passive Bookrunners:",
   "Co-Managers:",
   "Underwriters:",
+  "CUSIP / Common Code / ISIN:",
   "CUSIP / ISIN:",
   "CUSIP/ISIN:",
   "Use of Proceeds:",
@@ -409,6 +410,7 @@ function parseTrancheBlock(block: string): Omit<BondTranche, "label"> {
     section(block, "Coupon:", otherLabels("Coupon:")) ??
     "";
   const isinRaw =
+    section(block, "CUSIP / Common Code / ISIN:", otherLabels("CUSIP / Common Code / ISIN:")) ??
     section(block, "CUSIP / ISIN:", otherLabels("CUSIP / ISIN:")) ??
     section(block, "CUSIP/ISIN:", otherLabels("CUSIP/ISIN:")) ??
     "";
@@ -462,6 +464,7 @@ export function parseFwp(html: string): FwpParseResult {
     section(text, "Coupon:", otherLabels("Coupon:")) ??
     "";
   const isinRaw =
+    section(text, "CUSIP / Common Code / ISIN:", otherLabels("CUSIP / Common Code / ISIN:")) ??
     section(text, "CUSIP / ISIN:", otherLabels("CUSIP / ISIN:")) ??
     section(text, "CUSIP/ISIN:", otherLabels("CUSIP/ISIN:")) ??
     "";
