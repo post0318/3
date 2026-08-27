@@ -43,6 +43,21 @@ function isNotMatured(name: string): boolean {
   return year >= new Date().getFullYear();
 }
 
+const CALC_BASIS_VALUES: CalcBasis[] = [
+  "미국 30/360",
+  "ACT/ACT",
+  "ACT/360",
+  "ACT/365",
+  "유럽 30/360",
+];
+
+function frequencyFromMonths(months: number | null): CouponFrequency | null {
+  if (months === 3) return "3개월";
+  if (months === 6) return "6개월";
+  if (months === 12) return "12개월";
+  return null;
+}
+
 interface BondSearchBoxProps {
   disabled: boolean;
   active: boolean;
@@ -244,16 +259,41 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
             })
             .catch(() => {});
         } else if (selectedIssuer) {
-          // 국채가 아닌 회사채는 boerse-frankfurt에 신용등급 정보가 없다.
-          // 같은 회사가 SEC(미국채권검색)에도 등록돼 있으면 그쪽의 최근
-          // FWP에서 뽑은 등급을 대신 반영한다(발행자명이 구두점만 다른
-          // 경우가 많아 정규화 후 정확히 일치할 때만 매칭— 실제 확인:
-          // Apple/Meta/Microsoft/Alphabet). 매칭 실패 시 조용히 무시한다.
-          fetch(`/api/us-company-rating?name=${encodeURIComponent(selectedIssuer)}`)
+          // 국채가 아닌 회사채는 boerse-frankfurt에 신용등급/지급주기/
+          // 날짜계산기준 정보가 전혀 없다. 같은 회사가 SEC(미국채권검색)에도
+          // 등록돼 있으면 그쪽 데이터를 대신 반영한다(발행자명이 구두점만
+          // 다른 경우가 많아 정규화 후 정확히 일치할 때만 매칭 — 실제 확인:
+          // Apple/Meta/Microsoft/Alphabet). 이 ISIN으로 SEC에도 실제 발행한
+          // 적이 있으면(=isin까지 일치) 위에서 기본값(6개월·미국 30/360)으로
+          // 채운 지급주기/날짜계산기준도 그 트랜치의 진짜 값으로 덮어쓴다
+          // (실제 확인: Alphabet EUR채 XS3363386460은 연 1회 지급인데 기본값
+          // 6개월이 잘못 적용됐었다). 매칭 실패 시 조용히 무시한다(기본값 유지).
+          fetch(
+            `/api/us-company-rating?name=${encodeURIComponent(selectedIssuer)}&isin=${encodeURIComponent(bond.isin)}`
+          )
             .then((res) => res.json())
-            .then((rated: { rating?: string | null }) => {
-              if (rated.rating) onApply({ creditRating: rated.rating });
-            })
+            .then(
+              (rated: {
+                rating?: string | null;
+                couponFrequencyMonths?: number | null;
+                calcBasis?: string | null;
+              }) => {
+                const update: Partial<BondLayoutInput> = {};
+                if (rated.rating) update.creditRating = rated.rating;
+                const frequency = frequencyFromMonths(rated.couponFrequencyMonths ?? null);
+                if (frequency) update.couponFrequency = frequency;
+                if (
+                  rated.calcBasis &&
+                  CALC_BASIS_VALUES.includes(rated.calcBasis as CalcBasis)
+                ) {
+                  update.calcBasis = rated.calcBasis as CalcBasis;
+                }
+                if (Object.keys(update).length > 0) onApply(update);
+                // 지급주기/날짜계산기준을 SEC 실제값으로 덮어썼으면 더 이상
+                // "기본값입니다" 경고가 맞지 않으므로 상태 메시지를 갱신한다.
+                if (update.couponFrequency && update.calcBasis) setStatus("OK");
+              }
+            )
             .catch(() => {});
         }
       })

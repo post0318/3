@@ -616,6 +616,22 @@ export async function getRecentBondList(
   return results.flat();
 }
 
+/**
+ * 종목검색(boerse-frankfurt)은 이자지급주기/날짜계산기준을 전혀 제공하지
+ * 않아 앱 기본값(6개월·미국 30/360)을 채워 넣는데, 실제로는 다른 경우가
+ * 있다(실제 확인: Alphabet EUR채 XS3363386460은 연 1회 지급인데 기본값
+ * 6개월이 잘못 적용됨). 같은 회사가 SEC에도 등록돼 있고 이 ISIN으로 실제
+ * 발행한 적이 있으면, 그 트랜치의 진짜 값(등급/지급주기/날짜계산기준)을
+ * 대신 쓴다.
+ */
+export async function findBondByIsin(cik: string, isin: string): Promise<BondTranche | null> {
+  const list = await getRecentBondList(cik);
+  const match = list.find((item) => item.isin === isin);
+  if (!match) return null;
+  const detail = await fetchFwpDetail(match.indexUrl, cik, match.filedDate);
+  return detail.tranches.find((t) => t.isin === isin) ?? null;
+}
+
 /** 같은 회사가 FWP와 비슷한 시점에 낸 424B(본 증권신고서)에서 day-count 관용구를 찾는다 */
 export async function findDayCountBasis(
   cik: string,
