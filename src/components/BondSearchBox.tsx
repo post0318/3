@@ -24,7 +24,7 @@ interface BondDetail {
   lastPriceYield: number | null;
 }
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
 
 /**
  * boerse-frankfurt 검색 목록에는 만기일 필드가 없어(상세조회를 해야 알 수 있음),
@@ -166,7 +166,18 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         // 무이표 할인채다. 이 앱의 현금흐름 계산은 이표 지급을 전제로 하고
         // 있어(미국채권검색도 같은 이유로 T-Bill을 아예 조회 대상에서
         // 제외함) 정확히 계산할 수 없으므로 목록에서도 걸러낸다.
-        setBonds(all.filter((b) => isNotMatured(b.name) && b.coupon !== null));
+        // 앱이 지원하는 통화(6종)가 아니면(예: CHF) 거래통화를 반영할 방법이
+        // 없어 목록에서 제외한다(실제 확인: Alphabet의 CHF 채권
+        // CH1504033718). 통화 정보 자체가 없는 항목(currency: null)은
+        // 상세조회 전이라 모르는 것뿐이라 걸러내지 않는다.
+        setBonds(
+          all.filter(
+            (b) =>
+              isNotMatured(b.name) &&
+              b.coupon !== null &&
+              (!b.currency || CURRENCY_VALUES.includes(b.currency as Currency))
+          )
+        );
       })
       .catch(() => setStatus("채권 목록을 불러오지 못했습니다."))
       .finally(() => setLoadingBonds(false));
