@@ -174,6 +174,7 @@ export const COUNTRY_ISSUER_SLUGS: Record<string, string> = {
   "Türkei, Republik": "turkey",
   "Ungarn, Republik": "hungary",
   "United Arab Emirates, Federal Government of": "united-arab-emirates",
+  "United States of America": "united-states",
   "Ukraine, Republik": "ukraine",
   "Uruguay, Republik": "uruguay",
   "Usbekistan, Republik": "uzbekistan",
