@@ -184,6 +184,7 @@ const KNOWN_LABELS = [
   "Settlement Date",
   "Denominations:",
   "Ratings:",
+  "Ratings*:",
   "Long-Term Debt Ratings*:",
   "Long-Term Debt Ratings:",
   "Maturity Date:",
@@ -252,6 +253,7 @@ function extractRating(text: string): string | null {
   const ratingsRaw =
     section(text, "Long-Term Debt Ratings*:", otherLabels("Long-Term Debt Ratings*:")) ??
     section(text, "Long-Term Debt Ratings:", otherLabels("Long-Term Debt Ratings:")) ??
+    section(text, "Ratings*:", otherLabels("Ratings*:")) ??
     section(text, "Ratings:", otherLabels("Ratings:"));
   if (!ratingsRaw) return null;
 
@@ -287,7 +289,18 @@ function extractRating(text: string): string | null {
   // "Moody's, Aaa (negative outlook); S&P, AAA (stable outlook)" 형태
   // (기관명이 등급보다 먼저 나옴 — 실제 확인: Microsoft)
   for (const m of ratingsRaw.matchAll(
-    /(Moody|S&P|Poor|Fitch)[^,;()]*,\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
+    /(Moody|S&P|Poor|Fitch)[^,;():]*,\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
+  )) {
+    const agency = classify(m[1]);
+    if (agency && !results.some((r) => r.startsWith(`${agency}:`))) {
+      results.push(`${agency}: ${m[2]}`);
+    }
+  }
+
+  // "Moody's: Aa2 (Stable); S&P: AA+ (Stable)" 형태
+  // (기관명과 등급 사이가 쉼표가 아니라 콜론 — 실제 확인: Alphabet/Google)
+  for (const m of ratingsRaw.matchAll(
+    /(Moody|S&P|Poor|Fitch)[^,;():]*:\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
   )) {
     const agency = classify(m[1]);
     if (agency && !results.some((r) => r.startsWith(`${agency}:`))) {
