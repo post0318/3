@@ -197,9 +197,18 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         // "미국 30/360")이 그대로 쓰여 미국채권검색(ACT/ACT로 명시 반영)과
         // 같은 종목인데도 매수단가가 달라지는 문제가 있었다(실제 확인).
         // 미국국채는 시장 관행상 항상 ACT/ACT·6개월 이표라 미국채권검색과
-        // 동일하게 명시적으로 반영한다.
+        // 동일하게 명시적으로 반영한다. 브라질 USD 국채(브라질채권검색이
+        // 다루는 BRL표시 국내채 NTN-F와는 별개)도 SEC 공시서류(2007년
+        // 7.125% 2037만기 글로벌본드) 원문에 "computed on the basis of a
+        // 360-day year of twelve 30-day months"(미국식 30/360), "pay
+        // interest semi-annually"(6개월 이표)로 명시돼 있어 동일하게
+        // 반영한다. 둘 다 안 하면 이전에 다른 종목에서 남은 값(예:
+        // ACT/ACT나 Business/252)이 잘못 남을 수 있다.
         if (countrySlug === "united-states") {
           fields.calcBasis = "ACT/ACT" as CalcBasis;
+          fields.couponFrequency = "6개월" as CouponFrequency;
+        } else if (countrySlug === "brazil") {
+          fields.calcBasis = "미국 30/360" as CalcBasis;
           fields.couponFrequency = "6개월" as CouponFrequency;
         }
         onApply(fields);
