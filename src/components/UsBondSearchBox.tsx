@@ -95,6 +95,12 @@ function frequencyFromTreasuryLabel(label: string): number | null {
   return null;
 }
 
+/** "2031-05-15" -> "05/15/2031" (미국식 표기, 목록에서 만기연월을 짧게 보여주기 위함) */
+function formatUsDate(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : iso;
+}
+
 interface UsBondSearchBoxProps {
   disabled: boolean;
   active: boolean;
@@ -410,13 +416,14 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
                               {/* 회사채(kind: "sec")는 label이 "2031 Notes"처럼
                                   공시서류 원문 트랜치명이라 연도만 있고 월이
                                   없어, 같은 해에 만기가 다른 트랜치를 구분할
-                                  수 없었다(실제 확인). 만기연월을 이어붙인다.
-                                  국채(kind: "treasury")는 label 자체에 이미
-                                  쿠폰이 포함돼("29-Year 6-Month 2.375% 2056")
-                                  있어 다시 붙이면 "2.375% ... · 2.375%"처럼
-                                  중복 표시된다. */}
+                                  수 없었다(실제 확인). 만기일(미국식 MM/DD/
+                                  YYYY)을 짧게 이어붙인다. 국채(kind:
+                                  "treasury")는 label 자체에 이미 쿠폰이
+                                  포함돼("29-Year 6-Month 2.375% 2056") 있어
+                                  다시 붙이면 "2.375% ... · 2.375%"처럼 중복
+                                  표시된다. */}
                               {b.kind === "sec" && b.maturityDate
-                                ? ` (${b.maturityDate})`
+                                ? ` · ${formatUsDate(b.maturityDate)}`
                                 : ""}
                               {b.kind === "sec" && b.couponRate !== null
                                 ? ` · ${b.couponRate}%`
