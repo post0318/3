@@ -68,9 +68,17 @@ export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached.list;
 
   const [notes, bonds] = await Promise.all([fetchByType("Note"), fetchByType("Bond")]);
+  // 재발행(reopening)된 채권은 같은 CUSIP으로 발행일이 다른 행이 여러 개
+  // 나온다(예: 912810SP4 - 최초 2020-08-17, 재발행 2020-09-15/2020-10-15).
+  // sort: "-issue_date"로 받아 첫 값을 그대로 쓰면 가장 나중 재발행일이
+  // 잡히는데, 대부분의 외부 소스(구글 등)는 최초 발행일을 기준으로 하므로
+  // CUSIP별 가장 이른 발행일을 남긴다(실제 확인: 912810SP4).
   const byCusip = new Map<string, TreasuryBondItem>();
   for (const item of [...notes, ...bonds]) {
-    if (!byCusip.has(item.cusip)) byCusip.set(item.cusip, item);
+    const existing = byCusip.get(item.cusip);
+    if (!existing || item.issueDate < existing.issueDate) {
+      byCusip.set(item.cusip, item);
+    }
   }
   const list = [...byCusip.values()].sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
 
