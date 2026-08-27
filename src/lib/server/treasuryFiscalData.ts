@@ -1,7 +1,11 @@
+import { getRedis } from "@/lib/server/redis";
+
 const USER_AGENT = "ChaeGwonSesangBondApp research-contact@chaegwonsesang.example";
 const BASE_URL =
   "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query";
 const TTL_MS = 6 * 60 * 60 * 1000;
+const REDIS_KEY = "us-treasury-list-v2";
+const REDIS_TTL_SECONDS = 24 * 60 * 60;
 
 export interface TreasuryBondItem {
   cusip: string;
@@ -13,6 +17,10 @@ export interface TreasuryBondItem {
   frequency: string;
 }
 
+// 메모리 캐시(같은 서버리스 인스턴스 안)만 쓰면 Vercel이 새 인스턴스를 띄울
+// 때마다(=흔함) 캐시가 비어 매번 fiscaldata.treasury.gov를 새로 받아야
+// 했다(실제 겪음). 브라질채권검색/boerse-frankfurt salt와 동일하게 Redis에도
+// 캐시해 콜드스타트와 무관하게 공유되도록 한다.
 let cached: { list: TreasuryBondItem[]; fetchedAt: number } | null = null;
 
 interface RawAuctionRow {
@@ -72,6 +80,19 @@ async function fetchByType(type: "Note" | "Bond"): Promise<TreasuryBondItem[]> {
 export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached.list;
 
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const fromRedis = await redis.get<TreasuryBondItem[]>(REDIS_KEY);
+      if (fromRedis) {
+        cached = { list: fromRedis, fetchedAt: Date.now() };
+        return fromRedis;
+      }
+    } catch {
+      // Redis 조회 실패는 무시하고 원본 소스로 폴백한다.
+    }
+  }
+
   const [notes, bonds] = await Promise.all([fetchByType("Note"), fetchByType("Bond")]);
   // 재발행(reopening)된 채권은 같은 CUSIP으로 행이 여러 개 나오지만, 이제
   // issueDate가 dated_date라 재발행 회차와 무관하게 전부 동일한 값이다.
@@ -83,5 +104,8 @@ export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   const list = [...byCusip.values()].sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
 
   cached = { list, fetchedAt: Date.now() };
+  if (redis) {
+    redis.set(REDIS_KEY, list, { ex: REDIS_TTL_SECONDS }).catch(() => {});
+  }
   return list;
 }

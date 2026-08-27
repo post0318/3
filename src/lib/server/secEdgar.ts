@@ -1,6 +1,10 @@
+import { getRedis } from "@/lib/server/redis";
+
 const USER_AGENT = "ChaeGwonSesangBondApp research-contact@chaegwonsesang.example";
 const TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
 const COMPANY_TTL_MS = 24 * 60 * 60 * 1000;
+const REDIS_KEY = "us-companies-v1";
+const REDIS_TTL_SECONDS = 24 * 60 * 60;
 
 export interface CompanyInfo {
   cik: string;
@@ -8,6 +12,9 @@ export interface CompanyInfo {
   name: string;
 }
 
+// 메모리 캐시만 쓰면 Vercel 콜드스타트마다(=흔함) 약 1MB짜리 회사 목록을
+// 매번 새로 받아야 했다(실제 겪음: 회사검색/상세조회 전체가 체감상 느려짐).
+// Redis에도 캐시해 콜드스타트와 무관하게 공유되도록 한다.
 let cachedCompanies: { list: CompanyInfo[]; fetchedAt: number } | null = null;
 
 async function fetchText(url: string): Promise<string> {
@@ -21,6 +28,20 @@ export async function getCompanies(): Promise<CompanyInfo[]> {
   if (cachedCompanies && Date.now() - cachedCompanies.fetchedAt < COMPANY_TTL_MS) {
     return cachedCompanies.list;
   }
+
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const fromRedis = await redis.get<CompanyInfo[]>(REDIS_KEY);
+      if (fromRedis) {
+        cachedCompanies = { list: fromRedis, fetchedAt: Date.now() };
+        return fromRedis;
+      }
+    } catch {
+      // Redis 조회 실패는 무시하고 원본 소스로 폴백한다.
+    }
+  }
+
   const text = await fetchText(TICKERS_URL);
   const data = JSON.parse(text) as Record<
     string,
@@ -32,6 +53,9 @@ export async function getCompanies(): Promise<CompanyInfo[]> {
     name: v.title,
   }));
   cachedCompanies = { list, fetchedAt: Date.now() };
+  if (redis) {
+    redis.set(REDIS_KEY, list, { ex: REDIS_TTL_SECONDS }).catch(() => {});
+  }
   return list;
 }
 
