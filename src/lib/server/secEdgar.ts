@@ -602,8 +602,13 @@ export async function getRecentBondList(
         // (실제 확인: Alphabet의 $84.75B 자기자본 조달 보도자료가 FWP로
         // 올라온 사례 — 만기/쿠폰/ISIN이 전혀 없어 "만기 -"로만 뜨는 빈
         // 항목이었다). 만기일이 없으면 채권이 아닌 것으로 보고 걸러낸다.
+        // 표면이율이 없으면(JPMorgan 등이 다수 발행하는 "구조화 상품"
+        // Structured Note — 특정 주가에 연동된 조건부수익 노트로 고정쿠폰
+        // 자체가 없음, 실제 확인: "7.5m NEM Digital Barrier Notes",
+        // "No interest payments" 명시) 이 앱의 고정쿠폰 현금흐름 모델로는
+        // 표현할 수 없으므로 함께 걸러낸다.
         return tranches
-          .filter((t) => t.maturityDate !== null)
+          .filter((t) => t.maturityDate !== null && t.couponRate !== null)
           .map((t) => ({
             label: t.label,
             isin: t.isin,
