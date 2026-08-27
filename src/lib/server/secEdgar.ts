@@ -161,6 +161,22 @@ function section(text: string, label: string, nextLabels: string[]): string | nu
   return rest.slice(0, endIdx).trim();
 }
 
+/**
+ * "Settlement Date (T+5):"처럼 결제일수(T+n)가 발행마다 다른 라벨을 정확한
+ * 문자열 대신 정규식으로 찾는다(실제 확인: Meta는 T+2, Microsoft는 T+5).
+ */
+function sectionByPattern(text: string, startPattern: RegExp, nextLabels: string[]): string | null {
+  const m = text.match(startPattern);
+  if (!m || m.index === undefined) return null;
+  const rest = text.slice(m.index + m[0].length);
+  let endIdx = rest.length;
+  for (const next of nextLabels) {
+    const idx = rest.indexOf(next);
+    if (idx !== -1 && idx < endIdx) endIdx = idx;
+  }
+  return rest.slice(0, endIdx).trim();
+}
+
 const KNOWN_LABELS = [
   "Format:",
   "Issue:",
@@ -168,6 +184,8 @@ const KNOWN_LABELS = [
   "Settlement Date",
   "Denominations:",
   "Ratings:",
+  "Long-Term Debt Ratings*:",
+  "Long-Term Debt Ratings:",
   "Maturity Date:",
   "Maturity:",
   "Principal Amount:",
@@ -183,6 +201,7 @@ const KNOWN_LABELS = [
   "Benchmark Treasury:",
   "Benchmark Treasury Price/Yield:",
   "Interest Payment Dates:",
+  "Interest Payment Record Dates:",
   "Optional Redemption:",
   "Redemption:",
   "Net Proceeds:",
@@ -227,7 +246,13 @@ function findTrancheLabels(text: string): string[] {
 }
 
 function extractRating(text: string): string | null {
-  const ratingsRaw = section(text, "Ratings:", otherLabels("Ratings:"));
+  // 발행사마다 "Ratings:"(예: Meta) 또는 "Long-Term Debt Ratings*:"/
+  // "Long-Term Debt Ratings:"(예: Microsoft, 각주 별표가 붙기도 함)로
+  // 라벨이 다르다(실제 원문으로 확인).
+  const ratingsRaw =
+    section(text, "Long-Term Debt Ratings*:", otherLabels("Long-Term Debt Ratings*:")) ??
+    section(text, "Long-Term Debt Ratings:", otherLabels("Long-Term Debt Ratings:")) ??
+    section(text, "Ratings:", otherLabels("Ratings:"));
   if (!ratingsRaw) return null;
 
   const classify = (agencyText: string) =>
@@ -294,9 +319,10 @@ function extractIssuer(text: string): string | null {
 }
 
 function extractSettlementDate(text: string): string | null {
+  // 결제일수(T+n)가 발행마다 다르다(예: Meta T+2, Microsoft T+5). "(T+숫자)"
+  // 부분을 정규식으로 흡수해 어떤 n이든 찾는다.
   const raw =
-    section(text, "Settlement Date (T+2):*", otherLabels("Settlement Date")) ??
-    section(text, "Settlement Date (T+2):", otherLabels("Settlement Date")) ??
+    sectionByPattern(text, /Settlement Date\s*\(T\+\d+\):\*?/, otherLabels("Settlement Date")) ??
     section(text, "Settlement Date:", otherLabels("Settlement Date"));
   return raw ? parseUsDate(raw) : null;
 }
