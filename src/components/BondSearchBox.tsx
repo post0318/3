@@ -24,7 +24,7 @@ interface BondDetail {
   lastPriceYield: number | null;
 }
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "CHF"];
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 
 /**
  * boerse-frankfurt 검색 목록에는 만기일 필드가 없어(상세조회를 해야 알 수 있음),

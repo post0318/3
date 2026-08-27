@@ -72,7 +72,7 @@ interface FwpDetail {
   issuer: string | null;
 }
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "CHF"];
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 const CALC_BASIS_VALUES: CalcBasis[] = [
   "미국 30/360",
   "ACT/ACT",

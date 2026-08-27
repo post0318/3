@@ -10,7 +10,7 @@ export type InvestorType = "개인" | "일반법인" | "금융법인";
 
 export type CouponFrequency = "3개월" | "6개월" | "12개월";
 
-export type Currency = "USD" | "EUR" | "CNY" | "JPY" | "KRW" | "BRL" | "CHF";
+export type Currency = "USD" | "EUR" | "CNY" | "JPY" | "KRW" | "BRL";
 
 export type TaxStatus = "일반과세" | "비과세(농특세)" | "비과세";
 

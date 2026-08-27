@@ -110,7 +110,7 @@ const TAX_STATUS_OPTIONS: TaxStatus[] = ["일반과세", "비과세(농특세)",
 
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
-const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL", "CHF"];
+const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
 
 const cellBase = "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;

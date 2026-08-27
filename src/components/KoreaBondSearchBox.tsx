@@ -20,7 +20,7 @@ interface KoreaBondItem {
   paymentCycle: string | null;
 }
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "CHF"];
+const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW"];
 const COUPON_FREQUENCY_VALUES: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
 interface KoreaBondSearchBoxProps {
