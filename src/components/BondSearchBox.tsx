@@ -104,17 +104,26 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // "us" -> USA처럼 국가 별칭(COUNTRY_ISSUER_ALIASES)에 매칭되면, 회사명에
+  // 우연히 같은 문자열이 들어간 항목(예: "USA"가 들어간 회사명은 아주 흔함)
+  // 보다 항상 앞에 오도록 한다. 그렇지 않으면 상위 15개가 전부 우연한
+  // 이름 일치로 채워져 정작 찾는 국가가 안 보이는 문제가 있었다(실제 확인:
+  // "us" 검색 시 "United States of America"가 목록에 아예 안 보임).
   const matchingIssuers = useMemo(() => {
     if (!issuers || selectedIssuer) return [];
     const keyword = query.trim().toLowerCase();
     if (!keyword) return [];
-    return issuers
-      .filter((i) => {
-        if (i.toLowerCase().includes(keyword)) return true;
-        const aliases = COUNTRY_ISSUER_ALIASES[i];
-        return aliases ? aliases.some((alias) => alias.includes(keyword)) : false;
-      })
-      .slice(0, 15);
+    const aliasMatches: string[] = [];
+    const nameMatches: string[] = [];
+    for (const i of issuers) {
+      const aliases = COUNTRY_ISSUER_ALIASES[i];
+      if (aliases?.some((alias) => alias.includes(keyword))) {
+        aliasMatches.push(i);
+      } else if (i.toLowerCase().includes(keyword)) {
+        nameMatches.push(i);
+      }
+    }
+    return [...aliasMatches, ...nameMatches].slice(0, 15);
   }, [issuers, query, selectedIssuer]);
 
   const filteredBonds = useMemo(() => {
