@@ -110,9 +110,9 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
     // 매수금리: sellRate(Taxa Venda, 테조우로가 투자자에게 파는 쪽=투자자
     // 매수 기준 금리)를 반영한다. buyRate(Taxa Compra)는 투자자가 되파는
     // (매도) 쪽 금리라 매수 단가 계산에는 맞지 않는다. 값이 없으면 이전에
-    // 선택한 종목의 매수금리가 남지 않도록 비운다.
+    // 선택한 종목의 매수금리가 남지 않도록 0으로 되돌린다.
     fields.purchaseYield =
-      typeof bond.sellRate === "number" ? String(bond.sellRate) : "";
+      typeof bond.sellRate === "number" ? String(bond.sellRate) : "0";
 
     onApply(fields);
     setOpen(false);

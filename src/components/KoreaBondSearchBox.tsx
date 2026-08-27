@@ -181,7 +181,7 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     fields.taxStatus = "일반과세" as TaxStatus;
     // 매수금리는 일단 비워 다른 종목검색(예: 브라질채권검색)에서 반영된 값이
     // 남지 않게 하고, 아래에서 금융위원회_채권시세정보(종가수익률)로 갱신한다.
-    fields.purchaseYield = "";
+    fields.purchaseYield = "0";
 
     onApply(fields);
     setRatingLink(isTreasury ? null : seibroDetailUrl(bond));
@@ -190,20 +190,19 @@ export function KoreaBondSearchBox({ disabled, active, onApply }: KoreaBondSearc
     setOpen(false);
 
     // 매수금리: 한국거래소 채권시세정보(장내 체결)의 가장 최근 종가수익률을
-    // 반영한다. 이 데이터는 국채전문유통시장(국고채권)·일반채권시장 등
-    // 장내 거래만 담고 있어, 장외(OTC)에서 주로 거래되는 일반 회사채/캐피탈채
-    // 등은 대부분 조회되지 않는다(실제 확인). 국고채권만 조회하고, 회사채는
-    // 다른 방법을 찾을 때까지 매수금리를 비워둔 채로 둔다.
-    if (isTreasury) {
-      fetch(`/api/kr-bond-yield?isin=${encodeURIComponent(bond.isin)}`)
-        .then((res) => res.json())
-        .then((data: { rate?: number | null }) => {
-          if (typeof data.rate === "number") {
-            onApply({ purchaseYield: String(data.rate) });
-          }
-        })
-        .catch(() => {});
-    }
+    // 반영한다. 국채전문유통시장(국고채권)·일반채권시장 등 장내 거래만
+    // 담고 있어, 장외(OTC) 위주로 거래되는 일반 회사채/캐피탈채는 대부분
+    // 조회되지 않는다(실제 확인). 종목 구분과 무관하게 항상 조회를 시도해,
+    // 데이터가 있으면(장내에서 거래된 회사채 포함) 자동 반영하고 없으면
+    // 위에서 비워둔 값 그대로 직접 입력하도록 둔다.
+    fetch(`/api/kr-bond-yield?isin=${encodeURIComponent(bond.isin)}`)
+      .then((res) => res.json())
+      .then((data: { rate?: number | null }) => {
+        if (typeof data.rate === "number") {
+          onApply({ purchaseYield: String(data.rate) });
+        }
+      })
+      .catch(() => {});
 
     // 원화표시 국고채권은 RF 그대로 두고, 외화표시(예: USD) 국고채권만 실제
     // 대한민국 국가신용등급으로 갱신한다.

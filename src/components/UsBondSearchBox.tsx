@@ -283,8 +283,8 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     fields.taxStatus = "일반과세" as TaxStatus;
     // 이 데이터소스(SEC EDGAR FWP/fiscaldata.treasury.gov)에는 매수금리
     // (현재 시장 수익률) 정보가 없어, 다른 종목검색(예: 브라질채권검색)에서
-    // 반영된 값이 남지 않도록 비운다.
-    fields.purchaseYield = "";
+    // 반영된 값이 남지 않도록 0으로 되돌린다.
+    fields.purchaseYield = "0";
     if (tranche.calcBasis && CALC_BASIS_VALUES.includes(tranche.calcBasis as CalcBasis)) {
       fields.calcBasis = tranche.calcBasis as CalcBasis;
     }
