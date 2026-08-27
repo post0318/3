@@ -131,7 +131,12 @@ function isinFromCusip(cusip: string): string {
 interface UsBondSearchBoxProps {
   disabled: boolean;
   active: boolean;
-  onApply: (fields: Partial<BondLayoutInput>) => void;
+  // disclosureRating: 신용등급이 SEC 공시서류(FWP) 기준 값인지 여부.
+  // 국채(RF/실시간 국가등급)나 값을 못 찾은 경우는 false.
+  onApply: (
+    fields: Partial<BondLayoutInput>,
+    meta?: { disclosureRating?: boolean }
+  ) => void;
 }
 
 /**
@@ -333,7 +338,7 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
       fields.tradeCurrency = currency as Currency;
     }
 
-    onApply(fields);
+    onApply(fields, { disclosureRating: !isTreasury && !!tranche.rating });
     setRatingLink(isTreasury ? null : FINRA_FIXED_INCOME_URL);
 
     // 매수금리: boerse-frankfurt 현재가 기반 추정치(종목검색과 동일한

@@ -234,6 +234,11 @@ export function BondLayoutForm({
   const [activeSearchBox, setActiveSearchBox] = useState<
     "general" | "us" | "kr" | "br" | null
   >(null);
+  // 신용등급이 SEC 공시서류(FWP) 기준 값인지(미국채권검색의 회사채만
+  // 해당) 표시해 라벨을 "신용등급(공시기준)"으로 바꾸는 데 쓴다. 다른
+  // 출처(국채/한국/브라질/종목검색/수기입력/업로드)로 바뀌면 false로
+  // 되돌린다.
+  const [disclosureRating, setDisclosureRating] = useState(false);
 
   const update = <K extends keyof BondLayoutInput>(
     key: K,
@@ -355,6 +360,7 @@ export function BondLayoutForm({
       }
       onChange({ ...value, ...parsed });
       onLockedChange(true);
+      setDisclosureRating(false);
       setUploadStatus(`${count}개 항목을 반영했습니다.`);
     } catch {
       setUploadStatus("파일을 읽는 중 오류가 발생했습니다.");
@@ -389,15 +395,19 @@ export function BondLayoutForm({
           onApply={(fields) => {
             setActiveSearchBox("general");
             onLockedChange(false);
+            setDisclosureRating(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
         <UsBondSearchBox
           disabled={lockToggleDisabled}
           active={activeSearchBox === "us"}
-          onApply={(fields) => {
+          onApply={(fields, meta) => {
             setActiveSearchBox("us");
             onLockedChange(false);
+            if (meta?.disclosureRating !== undefined) {
+              setDisclosureRating(meta.disclosureRating);
+            }
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -407,6 +417,7 @@ export function BondLayoutForm({
           onApply={(fields) => {
             setActiveSearchBox("kr");
             onLockedChange(false);
+            setDisclosureRating(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -416,6 +427,7 @@ export function BondLayoutForm({
           onApply={(fields) => {
             setActiveSearchBox("br");
             onLockedChange(false);
+            setDisclosureRating(false);
             onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
           }}
         />
@@ -594,14 +606,17 @@ export function BondLayoutForm({
             </select>
             <PrintValue value={value.calcBasis} />
           </Row>
-          <Row label="신용등급" editable>
+          <Row label={disclosureRating ? "신용등급(공시기준)" : "신용등급"} editable>
             <input
               className={inputClass}
               type="text"
               placeholder="예: 무디스: Aa2 / S&P: AA"
               value={value.creditRating}
               disabled={locked}
-              onChange={(e) => update("creditRating", e.target.value)}
+              onChange={(e) => {
+                setDisclosureRating(false);
+                update("creditRating", e.target.value);
+              }}
               onKeyDown={commitOnEnter}
             />
           </Row>
