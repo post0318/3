@@ -97,20 +97,48 @@ async function fetchAndParse(): Promise<Payload> {
   return { asOfDate, items };
 }
 
-/** 백그라운드에서 최신 데이터를 받아 메모리/Redis 캐시를 모두 새로 채운다(응답을 막지 않음) */
+/** 최신 데이터를 받아 메모리/Redis 캐시를 모두 새로 채운다 */
+async function refreshCache(redis: ReturnType<typeof getRedis>): Promise<Payload> {
+  const payload = await fetchAndParse();
+  const cached: CachedPayload = { ...payload, fetchedAt: Date.now() };
+  memoryCache = cached;
+  if (redis) {
+    await redis.set(REDIS_KEY, cached, { ex: REDIS_TTL_SECONDS }).catch(() => {});
+  }
+  return payload;
+}
+
+/** 백그라운드에서(응답을 막지 않고) 캐시를 새로 채운다. 실패는 조용히 무시한다 */
 async function refreshInBackground(redis: ReturnType<typeof getRedis>) {
   if (refreshing) return;
   refreshing = true;
   try {
-    const payload = await fetchAndParse();
-    const cached: CachedPayload = { ...payload, fetchedAt: Date.now() };
-    memoryCache = cached;
-    if (redis) {
-      await redis.set(REDIS_KEY, cached, { ex: REDIS_TTL_SECONDS }).catch(() => {});
-    }
+    await refreshCache(redis);
   } catch {
     // 갱신 실패는 무시한다. 기존 캐시(오래됐어도)는 그대로 남아 다음 요청에도
     // 계속 쓰이고, 다음 요청에서 다시 갱신을 시도한다.
+  } finally {
+    refreshing = false;
+  }
+}
+
+/**
+ * Vercel Cron(하루 1회)에서 호출해 캐시를 미리 데워둔다. 접속이 뜸해
+ * Redis 캐시(3일 TTL)가 완전히 비면 "그 요청 하나"가 14MB CSV를 새로
+ * 받느라 20초 가까이 걸리는 문제(stale-while-revalidate로도 캐시가 아예
+ * 없는 최초 1회는 못 피함)를 막기 위함이다. 실패 시 예외를 그대로 던져
+ * cron 라우트가 실패 상태를 남기게 한다.
+ */
+export async function warmNtnFCache(): Promise<{ asOfDate: string; count: number }> {
+  if (refreshing) {
+    return memoryCache
+      ? { asOfDate: memoryCache.asOfDate, count: memoryCache.items.length }
+      : { asOfDate: "", count: 0 };
+  }
+  refreshing = true;
+  try {
+    const payload = await refreshCache(getRedis());
+    return { asOfDate: payload.asOfDate, count: payload.items.length };
   } finally {
     refreshing = false;
   }
