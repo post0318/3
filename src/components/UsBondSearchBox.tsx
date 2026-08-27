@@ -128,6 +128,12 @@ function isinFromCusip(cusip: string): string {
   return `${base}${checkDigit}`;
 }
 
+/** "US"+CUSIP(9자리)+체크숫자 형태의 미국 ISIN에서 CUSIP만 뽑아낸다.
+ * FINRA 채권 검색은 ISIN이 아니라 CUSIP으로 찾는다. */
+function cusipFromIsin(isin: string): string {
+  return /^US[0-9A-Z]{10}$/.test(isin) ? isin.slice(2, 11) : isin;
+}
+
 interface UsBondSearchBoxProps {
   disabled: boolean;
   active: boolean;
@@ -164,6 +170,8 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
   const [loadingBonds, setLoadingBonds] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [ratingLink, setRatingLink] = useState<string | null>(null);
+  const [ratingCusip, setRatingCusip] = useState<string | null>(null);
+  const [cusipCopied, setCusipCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -340,6 +348,8 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
 
     onApply(fields, { disclosureRating: !isTreasury && !!tranche.rating });
     setRatingLink(isTreasury ? null : FINRA_FIXED_INCOME_URL);
+    setRatingCusip(!isTreasury && tranche.isin ? cusipFromIsin(tranche.isin) : null);
+    setCusipCopied(false);
 
     const missing: string[] = [];
     if (!tranche.rating) missing.push("신용등급");
@@ -530,9 +540,20 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
                 href={ratingLink}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  if (ratingCusip && navigator.clipboard) {
+                    navigator.clipboard
+                      .writeText(ratingCusip)
+                      .then(() => setCusipCopied(true))
+                      .catch(() => {});
+                  }
+                }}
                 className="text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
               >
                 FINRA에서 신용등급 확인
+                {ratingCusip
+                  ? ` (CUSIP ${ratingCusip}${cusipCopied ? " 복사됨" : " 클릭시 복사"})`
+                  : ""}
               </a>
             </>
           )}

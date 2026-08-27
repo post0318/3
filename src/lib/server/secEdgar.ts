@@ -349,9 +349,25 @@ function extractDayCountBasis(text: string): string | null {
   return null;
 }
 
-function extractCouponFrequencyMonths(text: string): number | null {
+/**
+ * 여러 트랜치를 한 번에 묶어 발행하는 경우, "Interest Payment Dates:"
+ * 하나에 트랜치별로 다른 지급일이 "For the 2024 Notes, ... For the 2023
+ * Notes, 2028 Notes and 2031 Notes, ..."처럼 절 단위로 나뉘어 들어있다
+ * (실제 확인: NVIDIA 2021년 발행 — 2024 Notes는 6/14·12/14, 나머지는
+ * 6/15·12/15). trancheLabel을 안 넘기고 전체 텍스트에서 날짜를 세면 서로
+ * 다른 트랜치의 지급일이 합쳐져 실제보다 더 자주 지급하는 것처럼(예:
+ * 6개월인데 3개월로) 잘못 계산된다. trancheLabel이 언급된 절만 골라 그
+ * 안에서만 센다.
+ */
+function extractCouponFrequencyMonths(text: string, trancheLabel?: string): number | null {
   const raw = section(text, "Interest Payment Dates:", otherLabels("Interest Payment Dates:")) ?? "";
-  const monthDayCount = new Set([...raw.matchAll(/[A-Za-z]+ \d{1,2}\b/g)].map((m) => m[0])).size;
+  let scoped = raw;
+  if (trancheLabel) {
+    const clauses = raw.split(/(?=\bFor the\b)/i);
+    const matched = clauses.find((c) => c.includes(trancheLabel));
+    if (matched) scoped = matched;
+  }
+  const monthDayCount = new Set([...scoped.matchAll(/[A-Za-z]+ \d{1,2}\b/g)].map((m) => m[0])).size;
   if (monthDayCount === 1) return 12;
   if (monthDayCount === 2) return 6;
   if (monthDayCount === 4) return 3;
@@ -456,7 +472,6 @@ export function parseFwp(html: string): FwpParseResult {
 
   const shared = {
     rating: extractRating(text),
-    couponFrequencyMonths: extractCouponFrequencyMonths(text),
     settlementDate: extractSettlementDate(text),
     calcBasis: extractDayCountBasis(text),
   };
@@ -468,6 +483,7 @@ export function parseFwp(html: string): FwpParseResult {
           maturityDate: maturityDates[i] ?? null,
           couponRate: coupons[i] ?? null,
           isin: isins[i] ?? null,
+          couponFrequencyMonths: extractCouponFrequencyMonths(text, label),
           ...shared,
         }))
       : [
@@ -476,6 +492,7 @@ export function parseFwp(html: string): FwpParseResult {
             maturityDate: maturityDates[0] ?? null,
             couponRate: coupons[0] ?? null,
             isin: isins[0] ?? null,
+            couponFrequencyMonths: extractCouponFrequencyMonths(text),
             ...shared,
           },
         ];
