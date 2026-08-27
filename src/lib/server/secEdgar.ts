@@ -201,6 +201,8 @@ function sectionByPattern(text: string, startPattern: RegExp, nextLabels: string
 const KNOWN_LABELS = [
   "Format:",
   "Issue:",
+  "Title of Securities:",
+  "Title:",
   "Trade Date:",
   "Settlement Date",
   "Denominations:",
