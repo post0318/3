@@ -118,9 +118,9 @@ function htmlToText(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
-    .replace(/&#8217;|&#8216;/g, "'")
-    .replace(/&#8220;|&#8221;/g, '"')
-    .replace(/&#8211;|&#8212;/g, "-")
+    .replace(/&#8217;|&#8216;|&#145;|&#146;/g, "'")
+    .replace(/&#8220;|&#8221;|&#147;|&#148;/g, '"')
+    .replace(/&#8211;|&#8212;|&#150;|&#151;/g, "-")
     .replace(/&#160;/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{2,}/g, "\n");
@@ -258,7 +258,7 @@ function extractRating(text: string): string | null {
   const classify = (agencyText: string) =>
     /Moody/i.test(agencyText)
       ? "무디스"
-      : /Poor/i.test(agencyText)
+      : /Poor|S&P/i.test(agencyText)
         ? "S&P"
         : /Fitch/i.test(agencyText)
           ? "Fitch"
@@ -287,7 +287,7 @@ function extractRating(text: string): string | null {
   // "Moody's, Aaa (negative outlook); S&P, AAA (stable outlook)" 형태
   // (기관명이 등급보다 먼저 나옴 — 실제 확인: Microsoft)
   for (const m of ratingsRaw.matchAll(
-    /(Moody|Poor|Fitch)[^,;()]*,\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
+    /(Moody|S&P|Poor|Fitch)[^,;()]*,\s*([A-Za-z0-9+\-]{2,5})\s*\(/gi
   )) {
     const agency = classify(m[1]);
     if (agency && !results.some((r) => r.startsWith(`${agency}:`))) {
