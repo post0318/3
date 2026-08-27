@@ -14,13 +14,33 @@ const REDIS_SALT_KEY = "bf-salt-v1";
 
 let cachedSalt: { value: string; fetchedAt: number } | null = null;
 
+const FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * fetch()는 기본적으로 타임아웃이 없어, 상대 서버가(또는 그 앞단의 봇 차단
+ * 장비가) 응답 없이 연결만 붙잡고 있으면 Vercel 함수 자체 제한(300초)까지
+ * 그대로 걸려버린다(실제로 겪음: bond-detail 요청이 5분 만에야 504로 끝남).
+ * 요청마다 짧게 끊어 빨리 실패하게 한다.
+ */
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchSalt(): Promise<string> {
-  const homeRes = await fetch(HOME_URL, { headers: { "user-agent": "Mozilla/5.0" } });
+  const homeRes = await fetchWithTimeout(HOME_URL, { headers: { "user-agent": "Mozilla/5.0" } });
   if (!homeRes.ok) throw new Error("boerse-frankfurt 홈페이지에 접속할 수 없습니다.");
   const homeHtml = await homeRes.text();
   const fileMatch = homeHtml.match(/src="(main\.[\w-]*\.js)"/);
   if (!fileMatch) throw new Error("메인 스크립트 파일을 찾을 수 없습니다.");
-  const jsRes = await fetch(HOME_URL + fileMatch[1], { headers: { "user-agent": "Mozilla/5.0" } });
+  const jsRes = await fetchWithTimeout(HOME_URL + fileMatch[1], {
+    headers: { "user-agent": "Mozilla/5.0" },
+  });
   if (!jsRes.ok) throw new Error("메인 스크립트를 불러올 수 없습니다.");
   const jsText = await jsRes.text();
   const saltMatch = jsText.match(/salt:"(\w*)"/);
@@ -107,7 +127,7 @@ async function dataRequest(
 ): Promise<Record<string, unknown> | null> {
   return withSaltRetry(async (salt) => {
     const url = `${DATA_BASE}${fn}?${new URLSearchParams(params)}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: {
         ...buildSecurityHeaders(url, salt),
         accept: "application/json, text/plain, */*",
@@ -123,7 +143,7 @@ async function searchRequest(
 ): Promise<Record<string, unknown> | null> {
   return withSaltRetry(async (salt) => {
     const url = `${SEARCH_BASE}${fn}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: "POST",
       headers: {
         ...buildSecurityHeaders(url, salt),
@@ -142,7 +162,7 @@ async function searchGetRequest(
 ): Promise<Record<string, unknown> | null> {
   return withSaltRetry(async (salt) => {
     const url = `${SEARCH_BASE}${fn}?${new URLSearchParams(params)}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: {
         ...buildSecurityHeaders(url, salt),
         accept: "application/json, text/plain, */*",
