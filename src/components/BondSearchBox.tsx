@@ -243,6 +243,18 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
               if (rated.rating) onApply({ creditRating: rated.rating });
             })
             .catch(() => {});
+        } else if (selectedIssuer) {
+          // 국채가 아닌 회사채는 boerse-frankfurt에 신용등급 정보가 없다.
+          // 같은 회사가 SEC(미국채권검색)에도 등록돼 있으면 그쪽의 최근
+          // FWP에서 뽑은 등급을 대신 반영한다(발행자명이 구두점만 다른
+          // 경우가 많아 정규화 후 정확히 일치할 때만 매칭— 실제 확인:
+          // Apple/Meta/Microsoft/Alphabet). 매칭 실패 시 조용히 무시한다.
+          fetch(`/api/us-company-rating?name=${encodeURIComponent(selectedIssuer)}`)
+            .then((res) => res.json())
+            .then((rated: { rating?: string | null }) => {
+              if (rated.rating) onApply({ creditRating: rated.rating });
+            })
+            .catch(() => {});
         }
       })
       .catch(() => setStatus("상세정보를 불러오지 못했습니다."));

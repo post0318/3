@@ -59,6 +59,27 @@ export async function getCompanies(): Promise<CompanyInfo[]> {
   return list;
 }
 
+function normalizeCompanyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * 종목검색(boerse-frankfurt)의 발행자명("Meta Platforms Inc.")과 SEC의
+ * 공식 회사명("Meta Platforms, Inc.")은 구두점/대소문자만 다른 경우가
+ * 많다(실제 확인: Apple/Meta/Microsoft/Alphabet). 구두점을 제거하고 정확히
+ * 일치할 때만 매칭해, 서로 다른 회사가 우연히 이어붙는 오매칭을 막는다.
+ */
+export async function findCompanyByName(name: string): Promise<CompanyInfo | null> {
+  const target = normalizeCompanyName(name);
+  if (!target) return null;
+  const companies = await getCompanies();
+  return companies.find((c) => normalizeCompanyName(c.name) === target) ?? null;
+}
+
 export interface FilingSummary {
   accessionNumber: string;
   filedDate: string;
@@ -453,6 +474,30 @@ export function parseFwp(html: string): FwpParseResult {
         ];
 
   return { tranches, currency, issuer: extractIssuer(text) };
+}
+
+/**
+ * 종목검색(boerse-frankfurt)은 신용등급을 제공하지 않아, 같은 회사가 SEC에
+ * 낸 가장 최근 FWP에서 등급만 뽑아 대신 채운다. 등급은 발행마다가 아니라
+ * 회사 단위로 큰 변화가 없어(무디스/S&P 장기신용등급) 최근 발행분 값을
+ * 그대로 써도 무방하다. 최근 파일 하나가 라벨 형식 문제 등으로 실패할 수
+ * 있어 최근 3건까지 순서대로 시도한다.
+ */
+export async function getLatestRating(cik: string): Promise<string | null> {
+  const filings = await getFwpFilings(cik);
+  for (const filing of filings.slice(0, 3)) {
+    try {
+      const docUrl = await getPrimaryDocUrl(filing.indexUrl);
+      if (!docUrl) continue;
+      const html = await fetchText(docUrl);
+      const { tranches } = parseFwp(html);
+      const rated = tranches.find((t) => t.rating);
+      if (rated?.rating) return rated.rating;
+    } catch {
+      // 이 파일링은 건너뛰고 다음으로 시도한다.
+    }
+  }
+  return null;
 }
 
 export async function fetchFwpDetail(
