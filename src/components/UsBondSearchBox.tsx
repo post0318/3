@@ -203,11 +203,16 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     if (!bonds) return [];
     const keyword = query.trim().toLowerCase();
     if (!keyword) return bonds;
-    return bonds.filter((b) =>
-      `${b.label} ${b.couponRate ?? ""} ${b.maturityDate ?? ""} ${b.isin ?? ""}`
+    return bonds.filter((b) => {
+      // 국채(kind: "treasury")는 isin 자리에 9자리 CUSIP만 들어있는데,
+      // boerse-frankfurt 등 해외에서는 12자리 ISIN(US+CUSIP+체크숫자)으로
+      // 표기돼 그 값을 그대로 붙여넣으면 검색이 안 됐다(실제 확인:
+      // "US912810TM09"로 검색해도 안 잡힘). 계산한 ISIN도 함께 매칭한다.
+      const treasuryIsin = b.kind === "treasury" && b.isin ? isinFromCusip(b.isin) : "";
+      return `${b.label} ${b.couponRate ?? ""} ${b.maturityDate ?? ""} ${b.isin ?? ""} ${treasuryIsin}`
         .toLowerCase()
-        .includes(keyword)
-    );
+        .includes(keyword);
+    });
   }, [bonds, query]);
 
   const selectCompany = (company: CompanyInfo) => {
