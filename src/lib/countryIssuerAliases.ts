@@ -74,6 +74,7 @@ export const COUNTRY_ISSUER_ALIASES: Record<string, string[]> = {
   "Tschechien, Republik": ["czech republic", "czechia"],
   "Türkei, Republik": ["turkey", "turkiye", "türkiye"],
   "Ungarn, Republik": ["hungary"],
+  "United States of America": ["us", "usa"],
   "Usbekistan, Republik": ["uzbekistan"],
   "Vereinigte Mexikanische Staaten": ["mexico"],
   "Zypern, Republik": ["cyprus"],
