@@ -557,14 +557,20 @@ export async function getRecentBondList(
         if (!docUrl) return [];
         const html = await fetchText(docUrl);
         const { tranches } = parseFwp(html);
-        return tranches.map((t) => ({
-          label: t.label,
-          isin: t.isin,
-          maturityDate: t.maturityDate,
-          couponRate: t.couponRate,
-          indexUrl: offering.indexUrl,
-          filedDate: offering.filedDate,
-        }));
+        // FWP는 채권 가격결정조건표 말고도 증자 등 다른 공시에도 쓰인다
+        // (실제 확인: Alphabet의 $84.75B 자기자본 조달 보도자료가 FWP로
+        // 올라온 사례 — 만기/쿠폰/ISIN이 전혀 없어 "만기 -"로만 뜨는 빈
+        // 항목이었다). 만기일이 없으면 채권이 아닌 것으로 보고 걸러낸다.
+        return tranches
+          .filter((t) => t.maturityDate !== null)
+          .map((t) => ({
+            label: t.label,
+            isin: t.isin,
+            maturityDate: t.maturityDate,
+            couponRate: t.couponRate,
+            indexUrl: offering.indexUrl,
+            filedDate: offering.filedDate,
+          }));
       } catch {
         return [];
       }
