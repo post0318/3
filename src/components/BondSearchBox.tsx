@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BondLayoutInput, Currency, TaxStatus } from "@/types/bondLayout";
+import { BondLayoutInput, CalcBasis, CouponFrequency, Currency, TaxStatus } from "@/types/bondLayout";
 import { COUNTRY_ISSUER_ALIASES, COUNTRY_ISSUER_SLUGS } from "@/lib/countryIssuerAliases";
 
 interface BondSearchItem {
@@ -192,6 +192,16 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         fields.taxStatus = (countrySlug === "brazil"
           ? "비과세"
           : "일반과세") as TaxStatus;
+        // 미국국채는 boerse-frankfurt API에 날짜계산기준/이자지급주기 정보가
+        // 없어 건드리지 않고 있었는데, 그래서 이전에 남아있던 값(예: 기본값
+        // "미국 30/360")이 그대로 쓰여 미국채권검색(ACT/ACT로 명시 반영)과
+        // 같은 종목인데도 매수단가가 달라지는 문제가 있었다(실제 확인).
+        // 미국국채는 시장 관행상 항상 ACT/ACT·6개월 이표라 미국채권검색과
+        // 동일하게 명시적으로 반영한다.
+        if (countrySlug === "united-states") {
+          fields.calcBasis = "ACT/ACT" as CalcBasis;
+          fields.couponFrequency = "6개월" as CouponFrequency;
+        }
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
         setStatus("OK");
