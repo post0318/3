@@ -57,6 +57,7 @@ const CURRENCY_TO_CODE: Record<Currency, number> = {
   JPY: 4,
   KRW: 0,
   BRL: 5,
+  CHF: 6,
 };
 const CURRENCY_BY_CODE: Record<number, Currency> = {
   1: "USD",
@@ -65,6 +66,7 @@ const CURRENCY_BY_CODE: Record<number, Currency> = {
   4: "JPY",
   0: "KRW",
   5: "BRL",
+  6: "CHF",
 };
 
 const INVESTOR_TYPE_TO_CODE: Record<InvestorType, number> = {
