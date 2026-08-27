@@ -142,6 +142,9 @@ function htmlToText(html: string): string {
     .replace(/&#8217;|&#8216;|&#145;|&#146;/g, "'")
     .replace(/&#8220;|&#8221;|&#147;|&#148;/g, '"')
     .replace(/&#8211;|&#8212;|&#150;|&#151;/g, "-")
+    .replace(/&#128;|&#8364;/g, "€")
+    .replace(/&yen;|&#165;/gi, "¥")
+    .replace(/&pound;|&#163;/gi, "£")
     .replace(/&#160;/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{2,}/g, "\n");
@@ -438,7 +441,17 @@ function parseTrancheBlock(block: string): Omit<BondTranche, "label"> {
  */
 export function parseFwp(html: string): FwpParseResult {
   const text = htmlToText(html).replace(/\s+/g, " ");
-  const currency = /€|EUR\b/.test(text) && !/\$|USD\b/.test(text) ? "EUR" : "USD";
+  // "$"/"USD"는 문서 어딘가(법률 상투구 등)에 우연히 섞여 나올 수 있어
+  // 배제 조건으로 못 쓴다. 대신 실제 통화기호(¥/€/£)나 명칭이 하나라도
+  // 있으면 그 통화로, 없으면 USD로 판정한다(실제 확인: Alphabet의 EUR/JPY
+  // 유로본드 문서에는 $/USD가 아예 등장하지 않는다).
+  const currency = /¥|JPY\b/.test(text)
+    ? "JPY"
+    : /€|EUR\b/.test(text)
+      ? "EUR"
+      : /£|GBP\b/.test(text)
+        ? "GBP"
+        : "USD";
 
   const issuerIdxs = [...text.matchAll(/Issuer:/g)].map((m) => m.index);
 
@@ -576,7 +589,11 @@ export async function getRecentBondList(
         const docUrl = await getPrimaryDocUrl(offering.indexUrl);
         if (!docUrl) return [];
         const html = await fetchText(docUrl);
-        const { tranches } = parseFwp(html);
+        const { tranches, currency } = parseFwp(html);
+        // 미국채권검색은 USD 채권 전용이다. 같은 회사라도 해외법인 명의로
+        // EUR/JPY 등 다른 통화로 발행하는 경우가 있어(실제 확인: Alphabet
+        // 의 €9B 유로본드) 이 회사채 오퍼링 전체를 걸러낸다.
+        if (currency !== "USD") return [];
         // FWP는 채권 가격결정조건표 말고도 증자 등 다른 공시에도 쓰인다
         // (실제 확인: Alphabet의 $84.75B 자기자본 조달 보도자료가 FWP로
         // 올라온 사례 — 만기/쿠폰/ISIN이 전혀 없어 "만기 -"로만 뜨는 빈
