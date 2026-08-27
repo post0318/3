@@ -32,6 +32,30 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   }
 }
 
+/**
+ * 위 fetchWithTimeout은 fetch()가 응답 헤더를 받는 순간 끝난 것으로 보고
+ * 타이머를 해제한다. 그런데 실제로 quote_box 엔드포인트에서 헤더는 빨리
+ * 오고 본문(body) 스트림만 응답 없이 멈춰있는 경우를 실제로 겪었다(다른
+ * 엔드포인트는 정상, quote_box만 멈춤 — 로그로 확인). fetch+본문 읽기 전체를
+ * 별도로 다시 한번 시간제한 안에 가두어, 본문 단계에서 멈춰도 지정 시간
+ * 안에는 반드시 빠져나오게 한다.
+ */
+async function withOverallTimeout<T>(
+  run: () => Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} 응답이 ${ms}ms 안에 오지 않았습니다.`)), ms);
+  });
+  try {
+    return await Promise.race([run(), timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
 async function fetchSalt(): Promise<string> {
   const homeRes = await fetchWithTimeout(HOME_URL, { headers: { "user-agent": "Mozilla/5.0" } });
   if (!homeRes.ok) throw new Error("boerse-frankfurt 홈페이지에 접속할 수 없습니다.");
@@ -107,18 +131,25 @@ async function safeJson(res: Response): Promise<unknown> {
 }
 
 async function withSaltRetry<T>(
-  run: (salt: string) => Promise<{ res: Response; data: T }>
+  run: (salt: string) => Promise<{ res: Response; data: T }>,
+  label: string
 ): Promise<T> {
-  let salt = await getSalt();
-  let { res, data } = await run(salt);
-  if (res.status === 401 || res.status === 403) {
-    salt = await getSalt(true);
-    ({ res, data } = await run(salt));
-  }
-  if (!res.ok) {
-    throw new Error(`boerse-frankfurt 요청 실패 (${res.status})`);
-  }
-  return data;
+  return withOverallTimeout(
+    async () => {
+      let salt = await getSalt();
+      let { res, data } = await run(salt);
+      if (res.status === 401 || res.status === 403) {
+        salt = await getSalt(true);
+        ({ res, data } = await run(salt));
+      }
+      if (!res.ok) {
+        throw new Error(`boerse-frankfurt 요청 실패 (${res.status})`);
+      }
+      return data;
+    },
+    FETCH_TIMEOUT_MS * 2,
+    label
+  );
 }
 
 async function dataRequest(
@@ -134,7 +165,7 @@ async function dataRequest(
       },
     });
     return { res, data: (await safeJson(res)) as Record<string, unknown> | null };
-  });
+  }, fn);
 }
 
 async function searchRequest(
@@ -153,7 +184,7 @@ async function searchRequest(
       body: JSON.stringify(body),
     });
     return { res, data: (await safeJson(res)) as Record<string, unknown> | null };
-  });
+  }, fn);
 }
 
 async function searchGetRequest(
@@ -169,7 +200,7 @@ async function searchGetRequest(
       },
     });
     return { res, data: (await safeJson(res)) as Record<string, unknown> | null };
-  });
+  }, fn);
 }
 
 /** bond_search_criteria_data의 발행자(issuer) 전체 목록 (약 4,600여개) */
@@ -308,7 +339,11 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
 
   const master = await dataRequest("master_data_bond", { isin, mic });
 
-  // 수익률 조회는 부가 정보라, 실패해도 나머지(발행일/만기일 등) 조회는 살린다.
+  // 수익률 조회(quote_box)는 부가 정보라, 실패해도 나머지(발행일/만기일 등)
+  // 조회는 살린다. 실제 배포 환경(Vercel)에서 quote_box만 응답이 없어(로그로
+  // 확인, 개인 PC에서는 정상 응답) withOverallTimeout이 만료돼 항상
+  // null들로 폴백하는 상태다 — 원인은 boerse-frankfurt 쪽 네트워크 처리로
+  // 보이며 우리 쪽에서 더 손쓸 방법은 없어 현재 상태로 둔다.
   const quote = await getBondQuote(isin, mic).catch((err) => {
     console.warn(`[boerseFrankfurt] quote_box(${isin}) 조회 실패:`, err);
     return { bidYield: null, askYield: null, lastPriceYield: null } as BondQuote;
