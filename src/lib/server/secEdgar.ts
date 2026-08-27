@@ -580,7 +580,11 @@ export interface BondListItem {
  */
 export async function getRecentBondList(
   cik: string,
-  maxOfferings = 15
+  maxOfferings = 15,
+  // 미국채권검색 목록 용도(기본값)에서는 USD 채권만 남긴다. 종목검색의
+  // ISIN 매칭(findBondByIsin)은 boerse-frankfurt가 이미 다른 통화(EUR 등)
+  // 채권도 보여주고 있어 통화와 무관하게 전부 찾아야 하므로 false로 끈다.
+  usdOnly = true
 ): Promise<BondListItem[]> {
   const offerings = (await getFwpFilings(cik)).slice(0, maxOfferings);
   const results = await Promise.all(
@@ -593,7 +597,7 @@ export async function getRecentBondList(
         // 미국채권검색은 USD 채권 전용이다. 같은 회사라도 해외법인 명의로
         // EUR/JPY 등 다른 통화로 발행하는 경우가 있어(실제 확인: Alphabet
         // 의 €9B 유로본드) 이 회사채 오퍼링 전체를 걸러낸다.
-        if (currency !== "USD") return [];
+        if (usdOnly && currency !== "USD") return [];
         // FWP는 채권 가격결정조건표 말고도 증자 등 다른 공시에도 쓰인다
         // (실제 확인: Alphabet의 $84.75B 자기자본 조달 보도자료가 FWP로
         // 올라온 사례 — 만기/쿠폰/ISIN이 전혀 없어 "만기 -"로만 뜨는 빈
@@ -625,7 +629,7 @@ export async function getRecentBondList(
  * 대신 쓴다.
  */
 export async function findBondByIsin(cik: string, isin: string): Promise<BondTranche | null> {
-  const list = await getRecentBondList(cik);
+  const list = await getRecentBondList(cik, 15, false);
   const match = list.find((item) => item.isin === isin);
   if (!match) return null;
   const detail = await fetchFwpDetail(match.indexUrl, cik, match.filedDate);
