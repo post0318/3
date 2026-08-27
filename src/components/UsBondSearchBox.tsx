@@ -407,10 +407,17 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
                               className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
                             >
                               {b.label || `만기 ${b.maturityDate ?? "-"}`}
-                              {/* 국채(kind: "treasury")는 label 자체에 이미
+                              {/* 회사채(kind: "sec")는 label이 "2031 Notes"처럼
+                                  공시서류 원문 트랜치명이라 연도만 있고 월이
+                                  없어, 같은 해에 만기가 다른 트랜치를 구분할
+                                  수 없었다(실제 확인). 만기연월을 이어붙인다.
+                                  국채(kind: "treasury")는 label 자체에 이미
                                   쿠폰이 포함돼("29-Year 6-Month 2.375% 2056")
                                   있어 다시 붙이면 "2.375% ... · 2.375%"처럼
                                   중복 표시된다. */}
+                              {b.kind === "sec" && b.maturityDate
+                                ? ` (${b.maturityDate})`
+                                : ""}
                               {b.kind === "sec" && b.couponRate !== null
                                 ? ` · ${b.couponRate}%`
                                 : ""}
