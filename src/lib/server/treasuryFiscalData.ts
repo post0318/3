@@ -19,7 +19,7 @@ interface RawAuctionRow {
   cusip: string;
   security_type: string;
   security_term: string;
-  issue_date: string;
+  dated_date: string;
   maturity_date: string;
   int_rate: string;
   int_payment_frequency: string;
@@ -33,9 +33,9 @@ async function fetchByType(type: "Note" | "Bond"): Promise<TreasuryBondItem[]> {
     // 밀려 누락됐다. 만기일로 직접 필터링해 현재 유효한 채권 전체를 받는다
     // (Note/Bond 각 300건 안팎, page[size]=1000이면 한 번에 다 받아짐을 확인).
     filter: `security_type:eq:${type},int_rate:gt:0,maturity_date:gte:${today}`,
-    sort: "-issue_date",
+    sort: "-dated_date",
     "page[size]": "1000",
-    fields: "cusip,security_type,security_term,issue_date,maturity_date,int_rate,int_payment_frequency",
+    fields: "cusip,security_type,security_term,dated_date,maturity_date,int_rate,int_payment_frequency",
     format: "json",
   });
   const res = await fetch(`${BASE_URL}?${params}`, {
@@ -50,7 +50,12 @@ async function fetchByType(type: "Note" | "Bond"): Promise<TreasuryBondItem[]> {
       cusip: r.cusip,
       securityType: type,
       term: r.security_term,
-      issueDate: r.issue_date,
+      // "발행일"은 각 경매(최초 발행/재발행)의 결제일(issue_date)이 아니라
+      // dated_date를 쓴다. 재발행된 채권(예: 912810SP4)은 재발행 회차마다
+      // issue_date가 다르지만 dated_date는 전부 동일(2020-08-15)하고, 이자
+      // 지급주기(예: 2/15·8/15)와도 일치한다 — 실제 조회로 확인. 종목검색
+      // (boerse-frankfurt)이 보여주는 발행일과도 이 값이 일치한다.
+      issueDate: r.dated_date,
       maturityDate: r.maturity_date,
       couponRate: parseFloat(r.int_rate),
       frequency: r.int_payment_frequency,
@@ -68,17 +73,12 @@ export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached.list;
 
   const [notes, bonds] = await Promise.all([fetchByType("Note"), fetchByType("Bond")]);
-  // 재발행(reopening)된 채권은 같은 CUSIP으로 발행일이 다른 행이 여러 개
-  // 나온다(예: 912810SP4 - 최초 2020-08-17, 재발행 2020-09-15/2020-10-15).
-  // sort: "-issue_date"로 받아 첫 값을 그대로 쓰면 가장 나중 재발행일이
-  // 잡히는데, 대부분의 외부 소스(구글 등)는 최초 발행일을 기준으로 하므로
-  // CUSIP별 가장 이른 발행일을 남긴다(실제 확인: 912810SP4).
+  // 재발행(reopening)된 채권은 같은 CUSIP으로 행이 여러 개 나오지만, 이제
+  // issueDate가 dated_date라 재발행 회차와 무관하게 전부 동일한 값이다.
+  // 아무 행이나 먼저 나온 것을 쓰면 된다.
   const byCusip = new Map<string, TreasuryBondItem>();
   for (const item of [...notes, ...bonds]) {
-    const existing = byCusip.get(item.cusip);
-    if (!existing || item.issueDate < existing.issueDate) {
-      byCusip.set(item.cusip, item);
-    }
+    if (!byCusip.has(item.cusip)) byCusip.set(item.cusip, item);
   }
   const list = [...byCusip.values()].sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
 
