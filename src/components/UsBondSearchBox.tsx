@@ -341,6 +341,24 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
     onApply(fields, { disclosureRating: !isTreasury && !!tranche.rating });
     setRatingLink(isTreasury ? null : FINRA_FIXED_INCOME_URL);
 
+    const missing: string[] = [];
+    if (!tranche.rating) missing.push("신용등급");
+    if (!frequency) missing.push("지급주기");
+    if (!tranche.calcBasis) missing.push("날짜계산기준");
+    const baseStatus =
+      missing.length > 0
+        ? `일부 항목을 반영했습니다. ${missing.join("/")}은(는) 자동으로 찾지 못해 직접 입력이 필요합니다.`
+        : "OK";
+    setStatus(baseStatus);
+    // 매수금리를 못 찾은 경우, 0%가 실제 조회값처럼 보이지 않도록 별도로
+    // 안내한다(boerse-frankfurt 조회 실패/데이터 없음 모두 포함).
+    const notifyYieldMissing = () =>
+      setStatus(
+        baseStatus === "OK"
+          ? "관련종목의 매수금리가 확인되지 않습니다. 직접 확인이 필요합니다."
+          : `${baseStatus} 관련종목의 매수금리가 확인되지 않습니다. 직접 확인이 필요합니다.`
+      );
+
     // 매수금리: boerse-frankfurt 현재가 기반 추정치(종목검색과 동일한
     // 로직)로 갱신한다. 회사채(tranche.isin)는 이미 진짜 ISIN이고, 국채는
     // CUSIP만 있어 표준 규칙으로 ISIN을 계산해 넘긴다.
@@ -356,20 +374,14 @@ export function UsBondSearchBox({ disabled, active, onApply }: UsBondSearchBoxPr
         .then((data: { rate?: number | null }) => {
           if (typeof data.rate === "number") {
             onApply({ purchaseYield: String(data.rate) });
+          } else {
+            notifyYieldMissing();
           }
         })
-        .catch(() => {});
+        .catch(() => notifyYieldMissing());
+    } else {
+      notifyYieldMissing();
     }
-
-    const missing: string[] = [];
-    if (!tranche.rating) missing.push("신용등급");
-    if (!frequency) missing.push("지급주기");
-    if (!tranche.calcBasis) missing.push("날짜계산기준");
-    setStatus(
-      missing.length > 0
-        ? `일부 항목을 반영했습니다. ${missing.join("/")}은(는) 자동으로 찾지 못해 직접 입력이 필요합니다.`
-        : "OK"
-    );
     setOpen(false);
   };
 
