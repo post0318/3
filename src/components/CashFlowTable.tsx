@@ -29,7 +29,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
     "이자계산일",
     "원금",
     "보유현금",
-    "이자",
+    "채권이자",
     "현금이자",
     "과세소득",
     "과세표준",
