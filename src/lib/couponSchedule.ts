@@ -32,10 +32,13 @@ export function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** 결제일 = 신탁계약일로부터 브라질 영업일(토/일 + ANBIMA/B3 국경일 제외) n일 후 */
+/**
+ * 결제일 = 신탁계약일로부터 브라질 영업일(토/일 + ANBIMA/B3 국경일 제외) n일 후.
+ * 브라질 국채는 Tesouro Direto 관례대로 D+1 결제.
+ */
 export function getSettlementDate(
   trustContractDate: string,
-  businessDays = 2
+  businessDays = 1
 ): Date | null {
   const start = new Date(trustContractDate);
   if (Number.isNaN(start.getTime())) return null;
