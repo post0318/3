@@ -246,6 +246,7 @@ const KNOWN_LABELS = [
   "Redemption:",
   "Net Proceeds:",
   "Joint Book-Running Managers:",
+  "Sole Book-Running Manager:",
   "Passive Bookrunners:",
   "Co-Managers:",
   "Underwriters:",
