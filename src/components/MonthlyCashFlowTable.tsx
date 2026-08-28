@@ -34,7 +34,6 @@ export function MonthlyCashFlowTable({
     "지급일",
     "원금",
     "보유현금",
-    "월지급액",
     "원금차감분",
     "현금이자",
     "과세표준",
@@ -79,9 +78,6 @@ export function MonthlyCashFlowTable({
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
         {fmt(row.cashBalance, isKrw)}
-      </td>
-      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
-        {fmt(row.payout, isKrw)}
       </td>
       <td
         className={`${cell} ${
@@ -156,7 +152,6 @@ export function MonthlyCashFlowTable({
                 <td className="py-2 pr-4">합 계</td>
                 <td className="py-2 pr-4" />
                 <td className="py-2 pr-4" />
-                <td className={cell}>{fmt(total.payout, isKrw)}</td>
                 <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
                 <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
                 <td className="py-2 pr-4" />
