@@ -353,6 +353,18 @@ function extractRating(text: string): string | null {
   return results.length > 0 ? results.join(" / ") : null;
 }
 
+/**
+ * 변동금리채(FRN)는 "Coupon: SOFR (...), plus 1.210% per annum (the
+ * "Margin")"처럼 표면이율 자리에 마진(스프레드)만 적혀 있다(실제 확인:
+ * HSBC Holdings). 정규식은 그 숫자를 그대로 뽑아버려 마치 1.21%가 실제
+ * 표면이율인 것처럼 잘못 반영될 수 있다. 이 앱은 고정쿠폰 전제라 애초에
+ * 변동금리채를 표현할 수 없으므로, 벤치마크 금리 키워드가 보이면 표면이율을
+ * 추출하지 않는다(다른 필드가 이 값을 보고 채권을 걸러낼 수 있도록).
+ */
+function isFloatingRateCoupon(couponRaw: string): boolean {
+  return /\bSOFR\b|\bLIBOR\b|\bEURIBOR\b|\bSONIA\b|\bFloating Rate\b/i.test(couponRaw);
+}
+
 function extractDayCountBasis(text: string): string | null {
   const explicit =
     section(text, "Day Count Convention:", otherLabels("Day Count Convention:")) ??
@@ -435,7 +447,7 @@ function parseTrancheBlock(block: string): Omit<BondTranche, "label"> {
     "";
 
   const maturityDate = parseUsDate(maturityRaw);
-  const couponMatch = couponRaw.match(/\d+\.\d+%/);
+  const couponMatch = isFloatingRateCoupon(couponRaw) ? null : couponRaw.match(/\d+\.\d+%/);
   const isinMatch = isinRaw.match(/\b[A-Z]{2}[0-9A-Z]{9}\d\b/);
 
   return {
@@ -469,7 +481,12 @@ export function parseFwp(html: string): FwpParseResult {
         ? "GBP"
         : "USD";
 
-  const issuerIdxs = [...text.matchAll(/Issuer:/g)].map((m) => m.index);
+  // "Net Proceeds to Issuer:"/"Gross Proceeds to Issuer:"처럼 실제 트랜치
+  // 구분용 라벨이 아닌데 "Issuer:"로 끝나는 문구가 있다(실제 확인: HSBC
+  // Holdings — 이 문구 하나 때문에 단일 트랜치 문서가 2개짜리 다중트랜치로
+  // 잘못 인식돼 뒷부분(ISIN 포함)이 엉뚱하게 잘려나갔다). "to Issuer:"로
+  // 끝나는 매치는 제외한다.
+  const issuerIdxs = [...text.matchAll(/(?<!to )Issuer:/g)].map((m) => m.index);
 
   if (issuerIdxs.length >= 2) {
     const blocks = issuerIdxs.map((start, i) =>
@@ -500,7 +517,9 @@ export function parseFwp(html: string): FwpParseResult {
     "";
 
   const maturityDates = [...maturityRaw.matchAll(/[A-Za-z]+ \d{1,2},\s*\d{4}/g)].map((m) => parseUsDate(m[0]));
-  const coupons = [...couponRaw.matchAll(/\d+\.\d+%/g)].map((m) => parseFloat(m[0]));
+  const coupons = isFloatingRateCoupon(couponRaw)
+    ? []
+    : [...couponRaw.matchAll(/\d+\.\d+%/g)].map((m) => parseFloat(m[0]));
   const isins = [...isinRaw.matchAll(/\b[A-Z]{2}[0-9A-Z]{9}\d\b/g)].map((m) => m[0]);
 
   // 국채(주권) 발행자 FWP 일부는 라벨 뒤에 콜론이 아예 없다(실제 확인:
@@ -511,7 +530,7 @@ export function parseFwp(html: string): FwpParseResult {
     const m = text.match(/Maturity Date\s+([A-Za-z]+ \d{1,2},\s*\d{4})/);
     if (m) maturityDates.push(parseUsDate(m[1]));
   }
-  if (coupons.length === 0) {
+  if (coupons.length === 0 && !isFloatingRateCoupon(text)) {
     const m = text.match(/Interest Rate\s+(\d+\.\d+)%/);
     if (m) coupons.push(parseFloat(m[1]));
   }
