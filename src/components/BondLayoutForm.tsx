@@ -826,7 +826,7 @@ export function BondLayoutForm({
               <ComputedValue />
             )}
           </Row>
-          <Row label="이자총액">
+          <Row label="지급이자 총액">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(

@@ -31,7 +31,7 @@ export interface MaturitySummary {
   bankEquivalentYield: number;
 }
 
-/** 실투자원금, 이자총액, 만기시 세후금액, 세후수익률, 은행환산수익률 (fix.xlsx G10~G15) */
+/** 경과이자차감 원금, 지급이자 총액, 만기시 세후금액, 세후수익률, 은행환산수익률 (fix.xlsx G10~G15) */
 export function computeMaturitySummary(
   pricing: BondPricingResult,
   rows: CashFlowRow[],
