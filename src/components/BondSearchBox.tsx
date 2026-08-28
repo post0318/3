@@ -262,15 +262,20 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         // 국채(미국/브라질)는 날짜계산기준이 시장 관행상 확정적이라 그대로
         // 믿을 수 있지만, 그 외 발행자(회사채 등)는 날짜계산기준을 API가
         // 안 줘서 앱 기본값을 채워 넣은 것뿐이라 실제 종목의 진짜 기준과
-        // 다를 수 있다는 걸 알려준다(이자지급주기는 실제값을 구했으면 그
-        // 사실은 알린다).
-        setStatus(
-          countrySlug === "united-states" || countrySlug === "brazil"
-            ? "OK"
-            : realFrequency
-              ? "날짜계산기준은 기본값(미국 30/360)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
-              : "날짜계산기준/이자지급주기는 기본값(미국 30/360·6개월)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
-        );
+        // 다를 수 있다는 걸 알려준다. 지급주기/날짜계산기준 각각 실제값을
+        // 구했는지(boerse-frankfurt 발행일 역산 또는 아래 SEC 매칭)에 따라
+        // 문구를 갱신한다 — 둘 다 실제값이면 "OK"(예: SEC 매칭은 됐지만
+        // 지급주기 추출은 안 되는 경우가 있어, calcBasis만으로 OK 처리하면
+        // 안 되고 반드시 이 함수로 다시 계산해야 한다).
+        const computeStatus = (calcBasisConfirmed: boolean, frequencyConfirmed: boolean) => {
+          if (countrySlug === "united-states" || countrySlug === "brazil") return "OK";
+          if (calcBasisConfirmed && frequencyConfirmed) return "OK";
+          if (frequencyConfirmed) {
+            return "날짜계산기준은 기본값(미국 30/360)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다.";
+          }
+          return "날짜계산기준/이자지급주기는 기본값(미국 30/360·6개월)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다.";
+        };
+        setStatus(computeStatus(false, realFrequency !== null));
         setOpen(false);
 
         if (countrySlug) {
@@ -310,7 +315,12 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
                   }
                   if (Object.keys(update).length > 0) {
                     onApply(update);
-                    if (update.couponFrequency && update.calcBasis) setStatus("OK");
+                    setStatus(
+                      computeStatus(
+                        !!update.calcBasis,
+                        !!update.couponFrequency || realFrequency !== null
+                      )
+                    );
                   }
                 }
               )
@@ -346,10 +356,17 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
                 ) {
                   update.calcBasis = rated.calcBasis as CalcBasis;
                 }
-                if (Object.keys(update).length > 0) onApply(update);
-                // 지급주기/날짜계산기준을 SEC 실제값으로 덮어썼으면 더 이상
-                // "기본값입니다" 경고가 맞지 않으므로 상태 메시지를 갱신한다.
-                if (update.couponFrequency && update.calcBasis) setStatus("OK");
+                if (Object.keys(update).length > 0) {
+                  onApply(update);
+                  // 지급주기/날짜계산기준 각각 실제값을 구했는지에 따라
+                  // 상태 메시지를 갱신한다.
+                  setStatus(
+                    computeStatus(
+                      !!update.calcBasis,
+                      !!update.couponFrequency || realFrequency !== null
+                    )
+                  );
+                }
               }
             )
             .catch(() => {});
