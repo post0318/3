@@ -33,22 +33,15 @@ export function toDateString(date: Date): string {
 }
 
 /**
- * 결제일 = 신탁계약일로부터 브라질 영업일(토/일 + ANBIMA/B3 국경일 제외) n일 후.
- * 브라질 국채는 Tesouro Direto 관례대로 D+1 결제.
+ * 결제일. 브라질 국채는 SELIC 결제 관례대로 D+0 — 신탁계약일이 브라질 영업일
+ * (토/일 + ANBIMA/B3 국경일 제외)이면 그날, 아니면 다음 영업일.
  */
-export function getSettlementDate(
-  trustContractDate: string,
-  businessDays = 1
-): Date | null {
+export function getSettlementDate(trustContractDate: string): Date | null {
   const start = new Date(trustContractDate);
   if (Number.isNaN(start.getTime())) return null;
 
   let date = start;
-  let remaining = businessDays;
-  while (remaining > 0) {
-    date = addDays(date, 1);
-    if (isBrazilBusinessDay(date)) remaining--;
-  }
+  while (!isBrazilBusinessDay(date)) date = addDays(date, 1);
   return date;
 }
 
