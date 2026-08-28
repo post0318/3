@@ -17,6 +17,12 @@ function fmt(n: number, isKrw: boolean): string {
   });
 }
 
+/** 차감(음수)은 회계 관행대로 괄호로 표시: -815,983 → (815,983) */
+function fmtParen(n: number, isKrw: boolean): string {
+  if (!n) return "";
+  return n < 0 ? `(${fmt(-n, isKrw)})` : fmt(n, isKrw);
+}
+
 export function MonthlyCashFlowTable({
   rows,
   custodyCurrency,
@@ -29,7 +35,7 @@ export function MonthlyCashFlowTable({
     "원금",
     "보유현금",
     "월지급액",
-    "원금차감",
+    "원금차감분",
     "현금이자",
     "과세표준",
     "소득세",
@@ -84,7 +90,7 @@ export function MonthlyCashFlowTable({
             : "text-zinc-700 dark:text-zinc-300"
         }`}
       >
-        {row.principalDelta ? fmt(row.principalDelta, isKrw) : ""}
+        {fmtParen(row.principalDelta, isKrw)}
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
         {row.cashInterest ? fmt(row.cashInterest, isKrw) : ""}
@@ -151,7 +157,7 @@ export function MonthlyCashFlowTable({
                 <td className="py-2 pr-4" />
                 <td className="py-2 pr-4" />
                 <td className={cell}>{fmt(total.payout, isKrw)}</td>
-                <td className={cell}>{fmt(total.principalDelta, isKrw)}</td>
+                <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
                 <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
                 <td className="py-2 pr-4" />
                 <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
