@@ -107,13 +107,13 @@ export function generateMonthlyCashFlow(
   const frontFeeAmount = Math.trunc(trustAmount * (Number(input.frontFeeRate) / 100));
   if (Number.isNaN(backFeeRate) || Number.isNaN(trustAmount)) return null;
 
-  // 쿠폰액 (브라질은 복리환산 반기쿠폰)
-  const semiCoupon =
-    trunc(
-      input.calcBasis === "Business/252"
-        ? pricing.faceValue * (Math.pow(1 + rate, 1 / freqPerYear) - 1)
-        : (rate * pricing.faceValue) / freqPerYear
-    ) * maturityFx;
+  // 쿠폰액 (브라질은 복리환산 반기쿠폰). 액면통화 기준으로 구한 뒤 수탁통화로
+  // 환산하고 절사해 정수 KRW로 만든다(월 분할 시 소수점이 새지 않도록).
+  const semiCouponFace =
+    input.calcBasis === "Business/252"
+      ? pricing.faceValue * (Math.pow(1 + rate, 1 / freqPerYear) - 1)
+      : (rate * pricing.faceValue) / freqPerYear;
+  const semiCoupon = trunc(roundDown(semiCouponFace, 2) * maturityFx);
   const principalRedemption = trunc(pricing.faceValue * maturityFx);
   const preOwnedInterest = trunc(
     semiCoupon * pricing.accrualFraction * freqPerYear
