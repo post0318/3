@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { BondLayoutForm } from "@/components/BondLayoutForm";
 import { CashFlowTable } from "@/components/CashFlowTable";
+import { MonthlyCashFlowTable } from "@/components/MonthlyCashFlowTable";
 import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
+import { generateMonthlyCashFlow } from "@/lib/monthlyCashFlow";
 import { decodeBondLink } from "@/lib/bondLink";
 import { BondLayoutInput } from "@/types/bondLayout";
 
@@ -39,6 +41,7 @@ function createDefaultInput(): BondLayoutInput {
     backFeeRate: "0.00",
     incomeTaxRate: "15.40",
     cashInterestRate: "0.00",
+    reserveRate: "0.00",
   };
 }
 
@@ -60,13 +63,11 @@ export default function Home() {
   // 이 값은 바뀌지 않아, 공유 링크로 열었을 때는 잠금 버튼을 계속 비활성화해둔다.
   const [isSharedLink] = useState<boolean>(createInitialLocked);
 
-  // 1단계는 반기지급만 지원한다. 월 지급은 아직 계산 로직이 없어 잘못된
-  // 숫자를 보여주지 않도록 아예 계산하지 않고 "준비 중" 안내만 표시한다.
-  const isDistributionSupported = input.distributionType === "반기";
+  const isMonthly = input.distributionType === "월";
 
   const cashFlowRows = useMemo(
     () =>
-      !isDistributionSupported
+      isMonthly
         ? null
         : generateFixCashFlow({
             maturityDate: input.maturityDate,
@@ -87,7 +88,7 @@ export default function Home() {
             taxStatus: input.taxStatus,
           }),
     [
-      isDistributionSupported,
+      isMonthly,
       input.maturityDate,
       input.couponRate,
       input.couponFrequency,
@@ -103,6 +104,51 @@ export default function Home() {
       input.frontFeeRate,
       input.backFeeRate,
       input.cashInterestRate,
+      input.taxStatus,
+    ]
+  );
+
+  const monthlyRows = useMemo(
+    () =>
+      !isMonthly
+        ? null
+        : generateMonthlyCashFlow({
+            maturityDate: input.maturityDate,
+            couponRate: input.couponRate,
+            couponFrequency: input.couponFrequency,
+            purchaseYield: input.purchaseYield,
+            calcBasis: input.calcBasis,
+            trustContractDate: input.trustContractDate,
+            recentCouponDate: input.recentCouponDate,
+            tradeCurrency: input.tradeCurrency,
+            custodyCurrency: input.custodyCurrency,
+            purchaseFxRate: input.purchaseFxRate,
+            maturityFxRate: input.maturityFxRate,
+            trustInvestmentAmount: input.trustInvestmentAmount,
+            frontFeeRate: input.frontFeeRate,
+            backFeeRate: input.backFeeRate,
+            cashInterestRate: input.cashInterestRate,
+            reserveRate: input.reserveRate,
+            taxStatus: input.taxStatus,
+          }),
+    [
+      isMonthly,
+      input.maturityDate,
+      input.couponRate,
+      input.couponFrequency,
+      input.purchaseYield,
+      input.calcBasis,
+      input.trustContractDate,
+      input.recentCouponDate,
+      input.tradeCurrency,
+      input.custodyCurrency,
+      input.purchaseFxRate,
+      input.maturityFxRate,
+      input.trustInvestmentAmount,
+      input.frontFeeRate,
+      input.backFeeRate,
+      input.cashInterestRate,
+      input.reserveRate,
       input.taxStatus,
     ]
   );
@@ -147,21 +193,16 @@ export default function Home() {
             onLockedChange={setLocked}
             lockToggleDisabled={isSharedLink}
           />
-          {isDistributionSupported ? (
+          {isMonthly ? (
+            <MonthlyCashFlowTable
+              rows={monthlyRows}
+              custodyCurrency={input.custodyCurrency}
+            />
+          ) : (
             <CashFlowTable
               rows={cashFlowRows}
               custodyCurrency={input.custodyCurrency}
             />
-          ) : (
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
-              <h2 className="mb-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                지급이력표
-              </h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                &ldquo;{input.distributionType}&rdquo; 지급구분은 아직 준비
-                중입니다. 현재는 &ldquo;반기&rdquo;만 계산을 지원합니다.
-              </p>
-            </section>
           )}
         </div>
       </main>

@@ -45,4 +45,10 @@ export interface BondLayoutInput {
   incomeTaxRate: string;
   /** 현금성이율(%): 보유현금(KRW)에 적용하는 단리 이율 (PRD 규칙5) */
   cashInterestRate: string;
+  /**
+   * 유보율(%): 월지급 전용. 가입 시 신탁투자금액에서 이 비율만큼 현금을 유보해
+   * 첫 쿠폰 전 월지급 재원으로 쓴다. 유보금액은 매수가능금액에서 제외된다.
+   * 반기지급에서는 사용하지 않는다(0).
+   */
+  reserveRate: string;
 }

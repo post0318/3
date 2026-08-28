@@ -1,0 +1,168 @@
+import { MonthlyCashFlowRow } from "@/lib/monthlyCashFlow";
+
+interface MonthlyCashFlowTableProps {
+  rows: MonthlyCashFlowRow[] | null;
+  custodyCurrency: string;
+}
+
+const HEAD_ROWS = 6;
+const TAIL_ROWS = 6;
+
+function fmt(n: number, isKrw: boolean): string {
+  if (isKrw) return Math.trunc(n).toLocaleString("ko-KR");
+  const t = Math.trunc(n * 100) / 100;
+  return t.toLocaleString("ko-KR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function MonthlyCashFlowTable({
+  rows,
+  custodyCurrency,
+}: MonthlyCashFlowTableProps) {
+  const data = rows ?? [];
+  const isKrw = custodyCurrency === "KRW";
+
+  const columns = [
+    "지급일",
+    "원금",
+    "보유현금",
+    "월지급액",
+    "원금차감",
+    "현금이자",
+    "과세표준",
+    "소득세",
+    "세후수령액",
+  ];
+
+  const total = data.reduce(
+    (a, r) => ({
+      payout: a.payout + r.payout,
+      principalDelta: a.principalDelta + r.principalDelta,
+      cashInterest: a.cashInterest + r.cashInterest,
+      incomeTax: a.incomeTax + r.incomeTax,
+      netAmount: a.netAmount + r.netAmount,
+    }),
+    { payout: 0, principalDelta: 0, cashInterest: 0, incomeTax: 0, netAmount: 0 }
+  );
+
+  const isTruncated = data.length > HEAD_ROWS + TAIL_ROWS;
+  const shown = isTruncated
+    ? [...data.slice(0, HEAD_ROWS), null, ...data.slice(data.length - TAIL_ROWS)]
+    : data;
+
+  const cell = "whitespace-nowrap py-2 pr-4 text-right tabular-nums";
+  const renderRow = (row: MonthlyCashFlowRow) => (
+    <tr
+      key={`${row.date}-${row.type}`}
+      className={`border-b border-zinc-100 last:border-0 dark:border-zinc-900 ${
+        row.type === "만기상환" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+      }`}
+    >
+      <td className="whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
+        {row.date}
+        {row.type === "만기상환" && (
+          <span className="ml-1 text-xs text-amber-600 dark:text-amber-500">
+            만기상환
+          </span>
+        )}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {fmt(row.principalBalance, isKrw)}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {fmt(row.cashBalance, isKrw)}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {fmt(row.payout, isKrw)}
+      </td>
+      <td
+        className={`${cell} ${
+          row.principalDelta < 0
+            ? "text-red-600 dark:text-red-400"
+            : "text-zinc-700 dark:text-zinc-300"
+        }`}
+      >
+        {row.principalDelta ? fmt(row.principalDelta, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.cashInterest ? fmt(row.cashInterest, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.taxBase ? fmt(row.taxBase, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.incomeTax ? fmt(row.incomeTax, isKrw) : ""}
+      </td>
+      <td className="whitespace-nowrap py-2 text-right tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+        {fmt(row.netAmount, isKrw)}
+      </td>
+    </tr>
+  );
+
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6 print:p-2">
+      <h2 className="mb-5 print:mb-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        월지급 현금흐름표
+      </h2>
+
+      {data.length === 0 ? (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          채권정보와 신탁계약일, 신탁투자금액, 유보율, 보수율을 모두 입력하면
+          월지급 현금흐름표가 표시됩니다.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 bg-zinc-100 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                {columns.map((c, i) => (
+                  <th
+                    key={c}
+                    className={`whitespace-nowrap py-2 pr-4 font-medium ${
+                      i > 0 ? "text-right" : ""
+                    }`}
+                  >
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((row, i) =>
+                row === null ? (
+                  <tr key={`gap-${i}`}>
+                    <td
+                      colSpan={columns.length}
+                      className="py-2 text-center text-xs text-zinc-400 dark:text-zinc-600"
+                    >
+                      ⋮ 중간 {data.length - HEAD_ROWS - TAIL_ROWS}건 생략 ⋮
+                    </td>
+                  </tr>
+                ) : (
+                  renderRow(row)
+                )
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-zinc-200 bg-orange-50 font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-orange-950/30 dark:text-zinc-100">
+                <td className="py-2 pr-4">합 계</td>
+                <td className="py-2 pr-4" />
+                <td className="py-2 pr-4" />
+                <td className={cell}>{fmt(total.payout, isKrw)}</td>
+                <td className={cell}>{fmt(total.principalDelta, isKrw)}</td>
+                <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
+                <td className="py-2 pr-4" />
+                <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
+                <td className="py-2 text-right tabular-nums">
+                  {fmt(total.netAmount, isKrw)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}

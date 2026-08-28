@@ -265,6 +265,8 @@ export interface BondPricingInputs {
   purchaseFxRate: string;
   trustInvestmentAmount: string;
   frontFeeRate: string;
+  /** 유보율(%). 월지급 전용, 없으면 0. 유보금액은 매수가능금액에서 제외된다. */
+  reserveRate?: string;
 }
 
 export interface BondPricingResult {
@@ -276,7 +278,10 @@ export interface BondPricingResult {
   faceValue: number;
   accruedInterest: number;
   settlementAmount: number;
+  /** 채권 매수 후 남은 현금(유보금액 제외) */
   cashBalance: number;
+  /** 유보금액(월지급 재원). 반기지급이면 0 */
+  reserveAmount: number;
 }
 
 /** 채권권면액/매수단가(clean·dirty)/경과이자/결제금액/현금잔액을 fix.xlsx 수식과 동일한 순서로 계산한다 */
@@ -354,7 +359,9 @@ export function computeBondPricing(
   if (needsFx && (!fxRate || Number.isNaN(fxRate) || fxRate <= 0)) return null;
 
   const frontFeeAmount = Math.trunc(principal * (frontFeeRate / 100));
-  const availableAmount = principal - frontFeeAmount;
+  const reserveRate = Number(input.reserveRate) || 0;
+  const reserveAmount = Math.trunc(principal * (reserveRate / 100));
+  const availableAmount = principal - frontFeeAmount - reserveAmount;
 
   const faceValue = roundDown(
     (availableAmount / fxRate / dirtyPrice) * redemptionBasis,
@@ -371,7 +378,10 @@ export function computeBondPricing(
   const settlementAmount = isKrwSettlement
     ? Math.trunc(settlementAmountRaw)
     : roundDown(settlementAmountRaw, 2);
-  const cashBalance = roundDown(principal - frontFeeAmount - settlementAmount, 2);
+  const cashBalance = roundDown(
+    principal - frontFeeAmount - reserveAmount - settlementAmount,
+    2
+  );
 
   return {
     settlementDate: settlement.toISOString().slice(0, 10),
@@ -382,6 +392,7 @@ export function computeBondPricing(
     faceValue,
     accruedInterest,
     settlementAmount,
+    reserveAmount,
     cashBalance,
   };
 }

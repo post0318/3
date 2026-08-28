@@ -163,10 +163,6 @@ function ComputedValue() {
   );
 }
 
-function BlankValue() {
-  return <span>&nbsp;</span>;
-}
-
 /** 인쇄 시 select 대신 선택된 값만 텍스트로 보여준다 */
 function PrintValue({ value }: { value: string }) {
   return <span className="hidden print:inline">{value}</span>;
@@ -212,6 +208,8 @@ export function BondLayoutForm({
         purchaseFxRate: value.purchaseFxRate,
         trustInvestmentAmount: value.trustInvestmentAmount,
         frontFeeRate: value.frontFeeRate,
+        reserveRate:
+          value.distributionType === "월" ? value.reserveRate : "0",
       }),
     [
       value.maturityDate,
@@ -226,6 +224,8 @@ export function BondLayoutForm({
       value.purchaseFxRate,
       value.trustInvestmentAmount,
       value.frontFeeRate,
+      value.distributionType,
+      value.reserveRate,
     ]
   );
 
@@ -518,8 +518,25 @@ export function BondLayoutForm({
             </select>
             <PrintValue value={value.distributionType} />
           </Row>
-          <Row label=" " blank>
-            <BlankValue />
+          <Row label="유보율(%)" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder={value.distributionType === "월" ? "예: 5" : "월지급 전용"}
+              value={value.reserveRate}
+              disabled={value.distributionType !== "월"}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("reserveRate", e.target.value);
+                }
+              }}
+              onBlur={(e) =>
+                update("reserveRate", formatTwoDecimals(e.target.value))
+              }
+              onKeyDown={commitOnEnter}
+            />
           </Row>
           <Row label="거래통화">
             <span className="text-sm text-zinc-900 dark:text-zinc-100">BRL</span>
