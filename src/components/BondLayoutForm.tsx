@@ -16,7 +16,6 @@ import {
   CouponFrequency,
   DistributionType,
   InvestorType,
-  TaxStatus,
 } from "@/types/bondLayout";
 import {
   getInvestmentDays,
@@ -71,8 +70,6 @@ const CALC_BASIS_OPTIONS: CalcBasis[] = [
 ];
 
 const INVESTOR_TYPE_OPTIONS: InvestorType[] = ["개인", "일반법인", "금융법인"];
-
-const TAX_STATUS_OPTIONS: TaxStatus[] = ["일반과세", "비과세(농특세)", "비과세"];
 
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
@@ -539,22 +536,21 @@ export function BondLayoutForm({
               onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="과세여부" editable>
+          <Row label="지급구분" editable strong>
             <select
-              className={`${inputClass} print:hidden`}
-              value={value.taxStatus}
-              disabled={locked}
+              className={`${inputClass} print:hidden font-bold`}
+              value={value.distributionType}
               onChange={(e) =>
-                update("taxStatus", e.target.value as TaxStatus)
+                update("distributionType", e.target.value as DistributionType)
               }
             >
-              {TAX_STATUS_OPTIONS.map((opt) => (
+              {DISTRIBUTION_TYPE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>
               ))}
             </select>
-            <PrintValue value={value.taxStatus} />
+            <PrintValue value={value.distributionType} />
           </Row>
           <Row label=" " blank>
             <BlankValue />
@@ -760,22 +756,6 @@ export function BondLayoutForm({
         </GroupCard>
 
         <GroupCard title="상품수익률">
-          <Row label="지급구분" editable strong>
-            <select
-              className={`${inputClass} print:hidden font-bold`}
-              value={value.distributionType}
-              onChange={(e) =>
-                update("distributionType", e.target.value as DistributionType)
-              }
-            >
-              {DISTRIBUTION_TYPE_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <PrintValue value={value.distributionType} />
-          </Row>
           <Row label="신탁계약일" editable>
             <input
               className={inputClass}
@@ -861,14 +841,24 @@ export function BondLayoutForm({
               <ComputedValue />
             )}
           </Row>
-          <Row label="마지막 후취보수">
-            {maturitySummary ? (
-              <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {formatAmount(maturitySummary.lastBackFee)}
-              </span>
-            ) : (
-              <ComputedValue />
-            )}
+          <Row label="현금성이율(%)" editable>
+            <input
+              className={inputClass}
+              type="text"
+              inputMode="decimal"
+              placeholder="예: 2.0"
+              value={value.cashInterestRate}
+              onFocus={selectAllOnFocus}
+              onChange={(e) => {
+                if (PERCENT_INPUT_PATTERN.test(e.target.value)) {
+                  update("cashInterestRate", e.target.value);
+                }
+              }}
+              onBlur={(e) =>
+                update("cashInterestRate", formatTwoDecimals(e.target.value))
+              }
+              onKeyDown={commitOnEnter}
+            />
           </Row>
           <Row label="만기시 세후금액">
             {maturitySummary ? (

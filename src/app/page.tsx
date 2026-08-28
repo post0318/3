@@ -38,6 +38,7 @@ function createDefaultInput(): BondLayoutInput {
     frontFeeRate: "0.00",
     backFeeRate: "0.00",
     incomeTaxRate: "15.40",
+    cashInterestRate: "0.00",
   };
 }
 

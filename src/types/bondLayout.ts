@@ -43,4 +43,6 @@ export interface BondLayoutInput {
   frontFeeRate: string;
   backFeeRate: string;
   incomeTaxRate: string;
+  /** 현금성이율(%): 미투자 현금잔액(KRW)에 적용하는 이율 — 규칙5(월/재투자 단계) 대비 입력값 */
+  cashInterestRate: string;
 }
