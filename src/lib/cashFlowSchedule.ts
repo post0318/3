@@ -1,13 +1,15 @@
 import {
   CouponFrequency,
   Currency,
-  InvestorType,
   CalcBasis,
   TaxStatus,
 } from "@/types/bondLayout";
 import { FREQUENCY_MONTHS, addMonths } from "@/lib/couponSchedule";
 import { computeBondPricing, roundDown } from "@/lib/bondPricing";
-import { getEffectiveIncomeTaxRate } from "@/lib/taxRules";
+import {
+  CASH_INTEREST_TAX_RATE,
+  getEffectiveIncomeTaxRate,
+} from "@/lib/taxRules";
 
 export interface CashFlowRow {
   date: string;
@@ -21,8 +23,8 @@ export interface CashFlowRow {
   /** 채권 쿠폰 과세분 + 보유현금 이자 */
   taxableIncome: number;
   taxBase: number;
+  /** 채권이자분 소득세(과세여부 기준) + 현금이자분 소득세(15.4%) */
   incomeTax: number;
-  specialTax: number | null;
   netAmount: number;
 }
 
@@ -42,7 +44,6 @@ export interface CashFlowScheduleInputs {
   frontFeeRate: string;
   backFeeRate: string;
   cashInterestRate: string;
-  investorType: InvestorType;
   taxStatus: TaxStatus;
 }
 
@@ -51,7 +52,7 @@ function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / MS_PER_DAY);
 }
 
-/** fix.xlsx의 이자계산일별 현금흐름(원금/이자/과세소득/과세표준/소득세/농특세/세후수령액) 계산 */
+/** 이자계산일별 현금흐름(원금/보유현금/채권이자/현금이자/과세소득/과세표준/소득세/세후수령액) 계산 */
 export function generateFixCashFlow(
   input: CashFlowScheduleInputs
 ): CashFlowRow[] | null {
@@ -101,11 +102,11 @@ export function generateFixCashFlow(
     2
   ) * maturityFxRate;
 
-  // 화면에 보이는 현금흐름표 각 열(원금/이자/과세소득/과세표준/소득세/농특세/
-  // 세후수령액)은 수탁통화가 KRW면 정수로, 그 외는 소수점 2자리까지 절사해
-  // 표시한다. 절사 전 값을 그대로 내부 계산에 쓰면 "이자-소득세-농특세=
-  // 세후수령액" 같은 검산이 화면상 어긋나 보이므로, 표시값과 동일하게 절사한
-  // 값을 각 행에 저장하고 그 절사값으로 다음 계산을 이어간다.
+  // 화면에 보이는 현금흐름표 각 열(원금/보유현금/채권이자/현금이자/과세소득/
+  // 과세표준/소득세/세후수령액)은 수탁통화가 KRW면 정수로, 그 외는 소수점
+  // 2자리까지 절사해 표시한다. 절사 전 값을 그대로 내부 계산에 쓰면
+  // "채권이자+현금이자-소득세=세후수령액" 같은 검산이 화면상 어긋나 보이므로,
+  // 표시값과 동일하게 절사한 값을 각 행에 저장하고 그 절사값으로 이어간다.
   const isKrw = input.custodyCurrency === "KRW";
   const truncByCurrency = (n: number) => (isKrw ? Math.trunc(n) : roundDown(n, 2));
 
@@ -148,20 +149,23 @@ export function generateFixCashFlow(
     const availableBackFee = carryBackFeeResidual + backFeeThisPeriod;
     const totalDeduction = availableFrontFee + availableBackFee;
 
-    const taxBase = truncByCurrency(
-      taxableIncome > totalDeduction ? taxableIncome - totalDeduction : 0
-    );
-    const incomeTaxRate = getEffectiveIncomeTaxRate(input.taxStatus);
+    // 채권이자는 비과세인 경우가 많으므로 선취/후취보수 공제를 현금이자 과세분에
+    // 먼저 적용하고, 남는 공제만 채권이자 과세분에서 차감한다.
+    const cashTaxBase = Math.max(0, cashInterest - totalDeduction);
+    const deductionLeftover = Math.max(0, totalDeduction - cashInterest);
+    const bondTaxRate = getEffectiveIncomeTaxRate(input.taxStatus);
+    // 비과세 채권이자는 과세표준에 들어가지 않는다.
+    const bondTaxBase =
+      bondTaxRate > 0 ? Math.max(0, bondTaxableIncome - deductionLeftover) : 0;
+    const taxBase = truncByCurrency(bondTaxBase + cashTaxBase);
+
+    const incomeTaxRaw =
+      bondTaxBase * bondTaxRate + cashTaxBase * CASH_INTEREST_TAX_RATE;
     const incomeTax = isKrw
-      ? roundDown(taxBase * incomeTaxRate, -1)
-      : roundDown(taxBase * incomeTaxRate, 2);
-    const specialTaxRate = input.investorType === "개인" ? 0.014 : 0.028;
-    const specialTax =
-      input.taxStatus === "비과세(농특세)"
-        ? truncByCurrency(taxBase * specialTaxRate)
-        : null;
+      ? roundDown(incomeTaxRaw, -1)
+      : roundDown(incomeTaxRaw, 2);
     const netAmount = truncByCurrency(
-      interest + cashInterest - backFeeThisPeriod - incomeTax - (specialTax ?? 0)
+      interest + cashInterest - backFeeThisPeriod - incomeTax
     );
 
     rows.push({
@@ -173,7 +177,6 @@ export function generateFixCashFlow(
       taxableIncome,
       taxBase,
       incomeTax,
-      specialTax,
       netAmount,
     });
 

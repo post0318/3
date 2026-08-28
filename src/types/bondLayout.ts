@@ -13,7 +13,7 @@ export type CouponFrequency = "3개월" | "6개월" | "12개월";
 /** 이 상품은 브라질 국채(NTN-F) 전용이라 거래통화 BRL·수탁통화 KRW로 고정된다 */
 export type Currency = "KRW" | "BRL";
 
-export type TaxStatus = "일반과세" | "비과세(농특세)" | "비과세";
+export type TaxStatus = "일반과세" | "비과세";
 
 /** 지급구분: 월은 준비 중(1단계는 반기만 지원). 재투자형은 후속 검토 대상이라 선택지에서 제외 */
 export type DistributionType = "월" | "반기";

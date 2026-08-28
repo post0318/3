@@ -24,12 +24,12 @@ const COUPON_FREQUENCY_BY_CODE: Record<number, CouponFrequency> = {
 
 const TAX_STATUS_TO_CODE: Record<TaxStatus, number> = {
   일반과세: 1,
-  "비과세(농특세)": 2,
   비과세: 3,
 };
+// 코드 2는 옛 "비과세(농특세)". 농특세 삭제로 이제 "비과세"와 동일하게 취급한다.
 const TAX_STATUS_BY_CODE: Record<number, TaxStatus> = {
   1: "일반과세",
-  2: "비과세(농특세)",
+  2: "비과세",
   3: "비과세",
 };
 

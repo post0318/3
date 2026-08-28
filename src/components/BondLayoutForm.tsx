@@ -247,7 +247,6 @@ export function BondLayoutForm({
         frontFeeRate: value.frontFeeRate,
         backFeeRate: value.backFeeRate,
         cashInterestRate: value.cashInterestRate,
-        investorType: value.investorType,
         taxStatus: value.taxStatus,
       }),
     [
@@ -266,7 +265,6 @@ export function BondLayoutForm({
       value.frontFeeRate,
       value.backFeeRate,
       value.cashInterestRate,
-      value.investorType,
       value.taxStatus,
     ]
   );

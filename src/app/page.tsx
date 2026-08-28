@@ -84,7 +84,6 @@ export default function Home() {
             frontFeeRate: input.frontFeeRate,
             backFeeRate: input.backFeeRate,
             cashInterestRate: input.cashInterestRate,
-            investorType: input.investorType,
             taxStatus: input.taxStatus,
           }),
     [
@@ -104,7 +103,6 @@ export default function Home() {
       input.frontFeeRate,
       input.backFeeRate,
       input.cashInterestRate,
-      input.investorType,
       input.taxStatus,
     ]
   );

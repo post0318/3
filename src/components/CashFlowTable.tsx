@@ -23,7 +23,6 @@ function formatAmount(n: number, isKrw: boolean): string {
 export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
   const data = rows ?? [];
   const isKrw = custodyCurrency === "KRW";
-  const hasSpecialTax = data.some((row) => row.specialTax !== null);
 
   const columns = [
     "이자계산일",
@@ -34,7 +33,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
     "과세소득",
     "과세표준",
     "소득세",
-    ...(hasSpecialTax ? ["농특세"] : []),
     "세후수령액",
   ];
 
@@ -45,7 +43,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
       cashInterest: acc.cashInterest + row.cashInterest,
       taxableIncome: acc.taxableIncome + row.taxableIncome,
       incomeTax: acc.incomeTax + row.incomeTax,
-      specialTax: acc.specialTax + (row.specialTax ?? 0),
       netAmount: acc.netAmount + row.netAmount,
     }),
     {
@@ -54,7 +51,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
       cashInterest: 0,
       taxableIncome: 0,
       incomeTax: 0,
-      specialTax: 0,
       netAmount: 0,
     }
   );
@@ -93,11 +89,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
       <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
         {formatAmount(row.incomeTax, isKrw)}
       </td>
-      {hasSpecialTax && (
-        <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-          {formatAmount(row.specialTax as number, isKrw)}
-        </td>
-      )}
       <td className="whitespace-nowrap py-2 text-right tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
         {formatAmount(row.netAmount, isKrw)}
       </td>
@@ -157,11 +148,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.incomeTax, isKrw)}
                   </td>
-                  {hasSpecialTax && (
-                    <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatAmount(total.specialTax, isKrw)}
-                    </td>
-                  )}
                   <td className="py-2 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.netAmount, isKrw)}
                   </td>
@@ -223,11 +209,6 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.incomeTax, isKrw)}
                   </td>
-                  {hasSpecialTax && (
-                    <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
-                      {formatAmount(total.specialTax, isKrw)}
-                    </td>
-                  )}
                   <td className="py-2 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.netAmount, isKrw)}
                   </td>
