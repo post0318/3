@@ -1,4 +1,5 @@
 import { getRedis } from "@/lib/server/redis";
+import { COUNTRY_ISSUER_SEC_CIK } from "@/lib/countryIssuerAliases";
 
 const USER_AGENT = "ChaeGwonSesangBondApp research-contact@chaegwonsesang.example";
 const TICKERS_URL = "https://www.sec.gov/files/company_tickers.json";
@@ -78,6 +79,18 @@ export async function findCompanyByName(name: string): Promise<CompanyInfo | nul
   if (!target) return null;
   const companies = await getCompanies();
   return companies.find((c) => normalizeCompanyName(c.name) === target) ?? null;
+}
+
+/**
+ * 회사(findCompanyByName)뿐 아니라 국채(주권) 발행자도 SEC에 CIK가 있는
+ * 경우(COUNTRY_ISSUER_SEC_CIK) CIK를 반환한다. 국가 발행자는
+ * company_tickers.json에 없어 findCompanyByName만으로는 못 찾는다.
+ */
+export async function findCikByName(name: string): Promise<string | null> {
+  const sovereignCik = COUNTRY_ISSUER_SEC_CIK[name];
+  if (sovereignCik) return sovereignCik;
+  const company = await findCompanyByName(name);
+  return company?.cik ?? null;
 }
 
 export interface FilingSummary {

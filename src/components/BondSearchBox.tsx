@@ -280,6 +280,42 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
               if (rated.rating) onApply({ creditRating: rated.rating });
             })
             .catch(() => {});
+          // 국채도 발행국이 SEC에 직접 FWP를 낸 경우가 있다(실제 확인:
+          // 대한민국 정부의 달러표시 글로벌본드 — CIK 873465). 신용등급은
+          // 위 tradingeconomics 국가등급을 그대로 쓰고, 여기서는 지급주기/
+          // 날짜계산기준만 실제값이 있으면 기본값을 덮어쓴다. 미국/브라질은
+          // 이미 시장관행상 확정값을 위에서 명시 반영해서 제외한다.
+          if (
+            selectedIssuer &&
+            countrySlug !== "united-states" &&
+            countrySlug !== "brazil"
+          ) {
+            fetch(
+              `/api/us-company-rating?name=${encodeURIComponent(selectedIssuer)}&isin=${encodeURIComponent(bond.isin)}`
+            )
+              .then((res) => res.json())
+              .then(
+                (rated: {
+                  couponFrequencyMonths?: number | null;
+                  calcBasis?: string | null;
+                }) => {
+                  const update: Partial<BondLayoutInput> = {};
+                  const frequency = frequencyFromMonths(rated.couponFrequencyMonths ?? null);
+                  if (frequency) update.couponFrequency = frequency;
+                  if (
+                    rated.calcBasis &&
+                    CALC_BASIS_VALUES.includes(rated.calcBasis as CalcBasis)
+                  ) {
+                    update.calcBasis = rated.calcBasis as CalcBasis;
+                  }
+                  if (Object.keys(update).length > 0) {
+                    onApply(update);
+                    if (update.couponFrequency && update.calcBasis) setStatus("OK");
+                  }
+                }
+              )
+              .catch(() => {});
+          }
         } else if (selectedIssuer) {
           // 국채가 아닌 회사채는 boerse-frankfurt에 신용등급/지급주기/
           // 날짜계산기준 정보가 전혀 없다. 같은 회사가 SEC(미국채권검색)에도

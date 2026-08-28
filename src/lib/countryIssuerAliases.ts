@@ -183,3 +183,16 @@ export const COUNTRY_ISSUER_SLUGS: Record<string, string> = {
   "Vereinigte Mexikanische Staaten": "mexico",
   "Zypern, Republik": "cyprus",
 };
+
+/**
+ * 국채(주권) 발행자 중 일부는 SEC EDGAR에도 직접 FWP(가격결정조건표)를
+ * 제출한다(실제 확인: 대한민국 정부의 달러표시 글로벌본드 — EDGAR
+ * 전문검색으로 "REPUBLIC OF KOREA" CIK 0000873465에서 실제 원문 확인,
+ * "computed on the basis of a 360-day year of twelve 30-day months"·
+ * "payable semi-annually"). company_tickers.json에는 국가 발행자가 없어
+ * (일반 상장사용 티커 목록) 별도로 매핑해둔다. 확인된 국가만 여기 추가한다
+ * — 대부분의 국채는 SEC 등록 없이 Reg S로만 발행돼 여기 없을 수 있다.
+ */
+export const COUNTRY_ISSUER_SEC_CIK: Record<string, string> = {
+  "Korea, Republik": "0000873465",
+};
