@@ -499,6 +499,23 @@ export function parseFwp(html: string): FwpParseResult {
   const coupons = [...couponRaw.matchAll(/\d+\.\d+%/g)].map((m) => parseFloat(m[0]));
   const isins = [...isinRaw.matchAll(/\b[A-Z]{2}[0-9A-Z]{9}\d\b/g)].map((m) => m[0]);
 
+  // 국채(주권) 발행자 FWP 일부는 라벨 뒤에 콜론이 아예 없다(실제 확인:
+  // 대한민국 정부 — "Maturity Date September 16, 2030", "Interest Rate
+  // 1.000% per annum", "ISIN US50064FAS39"). 콜론 기반 추출이 실패하면
+  // 라벨 바로 뒤 값을 정규식으로 직접 찾는다.
+  if (maturityDates.length === 0) {
+    const m = text.match(/Maturity Date\s+([A-Za-z]+ \d{1,2},\s*\d{4})/);
+    if (m) maturityDates.push(parseUsDate(m[1]));
+  }
+  if (coupons.length === 0) {
+    const m = text.match(/Interest Rate\s+(\d+\.\d+)%/);
+    if (m) coupons.push(parseFloat(m[1]));
+  }
+  if (isins.length === 0) {
+    const m = text.match(/ISIN\s+([A-Z]{2}[0-9A-Z]{9}\d)\b/);
+    if (m) isins.push(m[1]);
+  }
+
   const shared = {
     rating: extractRating(text),
     settlementDate: extractSettlementDate(text),
