@@ -20,21 +20,24 @@ interface BrazilBondSearchBoxProps {
 }
 
 /**
- * 브라질 재무부 공식 오픈데이터 포털 tesourotransparente.gov.br의 CSV(매일 갱신,
- * 인증 불필요)에서 NTN-F(Nota do Tesouro Nacional Série F, 소매판매명
- * "Tesouro Prefixado com Juros Semestrais") 현재 거래 종목만 가져와 선택
- * 즉시 발행일/만기일/표면이율/지급주기/날짜계산기준/거래통화를 자동 반영한다.
- * NTN-F는 표면이율 연 10.00% 고정, 6개월마다(1/1, 7/1) 이자 지급, 일수계산은
- * 브라질 영업일 기준 Business/252를 쓴다(brazilCalendar.ts).
+ * NTN-F(Nota do Tesouro Nacional Série F, 소매판매명 "Tesouro Prefixado com
+ * Juros Semestrais") 현재 거래 종목을 골라 선택 즉시 발행일/만기일/표면이율/
+ * 지급주기/날짜계산기준/거래통화를 자동 반영한다. NTN-F는 표면이율 연 10.00%
+ * 고정, 6개월마다(1/1, 7/1) 이자 지급, 일수계산은 브라질 영업일 기준
+ * Business/252를 쓴다(brazilCalendar.ts).
  *
- * 옛 JSON API(treasurybondsinfo.json)는 2025-08부터 죽었고 B3 공식 API는
- * B2B 전용이라 개인/자동화 접근이 불가해, 정부 오픈데이터 CSV로 대체했다.
- * 신용등급은 개별 채권 평가 대상이 아니라 tradingeconomics.com의 브라질
- * 국가신용등급(S&P/Moody's)을 가져와 반영한다(한국채권검색의 국고채권,
- * 미국채권검색의 U.S. Treasury와 동일한 취급). 발행일은 CSV에 없어,
- * NTN-F가 만기 11년 전 1월 1일에 발행되는 관행(maisretorno.com 실제
- * 발행일·Bloomberg 데이터로 확인)을 근거로 추정해 반영한다(확인 후 사용 권장).
- * 과세여부 기본값은 "비과세"로 반영한다.
+ * 목록 데이터는 /api/br-bond-search 가 레포에 커밋된 스냅샷
+ * (src/lib/server/ntnf-snapshot.json)을 그대로 반환한다. 원본은
+ * tesourotransparente.gov.br의 14MB CSV뿐인데(옛 JSON API는 410 Gone, B3
+ * API는 봇차단) 요청 시점에 받으면 40초가 걸려, GitHub Actions가 주간으로
+ * 스냅샷을 갱신 커밋 → 재배포하는 방식으로 바꿨다(scripts/fetch-ntnf-snapshot.mjs).
+ *
+ * 신용등급은 개별 채권이 아니라 tradingeconomics.com의 브라질 국가신용등급
+ * (S&P/Moody's)을 가져와 반영한다(한국채권검색의 국고채권, 미국채권검색의
+ * U.S. Treasury와 동일한 취급). 발행일은 데이터에 없어, NTN-F가 만기 11년 전
+ * 1월 1일에 발행되는 관행(maisretorno.com 실제 발행일·Bloomberg 데이터로
+ * 확인)을 근거로 추정해 반영한다(확인 후 사용 권장). 과세여부 기본값은
+ * "비과세"로 반영한다.
  */
 export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxProps) {
   const [open, setOpen] = useState(false);
@@ -73,12 +76,7 @@ export function BrazilBondSearchBox({ disabled, onApply }: BrazilBondSearchBoxPr
       setError(null);
       fetch("/api/br-bond-search")
         .then((res) => res.json())
-        .then((data: { asOfDate?: string; bonds?: BrazilBondItem[]; error?: string }) => {
-          if (data.error) {
-            setError("온라인(Vercel) 배포판에서만 사용할 수 있습니다.");
-            setBonds([]);
-            return;
-          }
+        .then((data: { asOfDate?: string; bonds?: BrazilBondItem[] }) => {
           const today = new Date().toISOString().slice(0, 10);
           const all = Array.isArray(data.bonds) ? data.bonds : [];
           setAsOfDate(data.asOfDate ?? null);

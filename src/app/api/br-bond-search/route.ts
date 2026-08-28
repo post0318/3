@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { fetchLatestNtnF } from "@/lib/server/brazilBondData";
+import { getLatestNtnF } from "@/lib/server/brazilBondData";
 
+/**
+ * 브라질채권검색 목록. 레포에 커밋된 스냅샷(ntnf-snapshot.json)을 그대로
+ * 반환한다 — 요청 시점에 외부 소스를 받지 않으므로 항상 즉시 응답한다.
+ * 스냅샷 갱신은 GitHub Actions(주간) → 재배포 경로로만 이뤄진다.
+ */
 export async function GET() {
-  try {
-    const { asOfDate, items } = await fetchLatestNtnF();
-    return NextResponse.json({ asOfDate, bonds: items });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "조회 실패" },
-      { status: 502 }
-    );
-  }
+  const { asOfDate, items } = getLatestNtnF();
+  return NextResponse.json({ asOfDate, bonds: items });
 }

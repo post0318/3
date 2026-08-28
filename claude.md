@@ -8,7 +8,8 @@
 
 - Next.js 16 (app router)
 - tailwind css
-- vercel (배포, cron으로 브라질 채권 캐시 예열)
+- vercel (배포)
+- 브라질채권검색 시세는 레포에 커밋된 스냅샷(src/lib/server/ntnf-snapshot.json)을 쓰고, GitHub Actions가 주간으로 갱신한다 (scripts/fetch-ntnf-snapshot.mjs). 원본 CSV가 14MB라 요청 시점에 못 받는다.
 
 ## 코드규칙
 - Typescript 사용
