@@ -101,7 +101,11 @@ export async function getTreasuryList(): Promise<TreasuryBondItem[]> {
   for (const item of [...notes, ...bonds]) {
     if (!byCusip.has(item.cusip)) byCusip.set(item.cusip, item);
   }
-  const list = [...byCusip.values()].sort((a, b) => (a.issueDate < b.issueDate ? 1 : -1));
+  // 목록에서 만기가 가까운 순으로 훑어볼 수 있도록 만기일 기준 오름차순 정렬
+  // (브라질채권검색과 동일한 정렬 기준).
+  const list = [...byCusip.values()].sort((a, b) =>
+    a.maturityDate < b.maturityDate ? -1 : 1
+  );
 
   cached = { list, fetchedAt: Date.now() };
   if (redis) {

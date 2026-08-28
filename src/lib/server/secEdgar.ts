@@ -678,7 +678,12 @@ export async function getRecentBondList(
       }
     })
   );
-  return results.flat();
+  // FWP 공시 순서(최근 제출일 순)로 섞여 나오면 같은 만기끼리 묶어보기 어렵다.
+  // 브라질채권검색/미국국채와 동일하게 만기일 기준 오름차순으로 정렬한다
+  // (이 시점에는 위 필터에서 maturityDate가 없는 항목은 이미 걸러졌다).
+  return results
+    .flat()
+    .sort((a, b) => (a.maturityDate ?? "") < (b.maturityDate ?? "") ? -1 : 1);
 }
 
 /**
