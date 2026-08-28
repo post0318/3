@@ -18,7 +18,12 @@ export interface MaturitySummaryInputs {
 
 export interface MaturitySummary {
   lastBackFee: number;
-  /** 신탁투자금액에서 첫 이자지급 시 돌려받는 경과이자(매수 시 선지급분)를 뺀 실투자원금 */
+  /**
+   * 신탁투자금액에서 첫 이자지급 시 돌려받는 경과이자(매수 시 선지급분)를 뺀 값.
+   * 참고 표시용이며 수익률 분모가 아니다 — 수익률은 실제 유출액인 신탁투자금액
+   * 전액(principal)을 기준으로 한다. 경과이자는 매수 비용(결제금액)과 첫 쿠폰
+   * 양쪽에 이미 반영돼 상쇄되므로 수익률 계산에서 따로 빼지 않는다.
+   */
   investedPrincipal: number;
   totalInterest: number;
   postTaxMaturityAmount: number;

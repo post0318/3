@@ -814,7 +814,7 @@ export function BondLayoutForm({
               onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="투자원금">
+          <Row label="경과이자차감 원금">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
