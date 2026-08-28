@@ -274,6 +274,33 @@ export interface BondDetail {
   bidYield: number | null;
   askYield: number | null;
   lastPriceYield: number | null;
+  couponFrequencyMonths: number | null;
+}
+
+/**
+ * master_data_bond의 interestPaymentPeriod(지급주기) 필드는 국채/회사채
+ * 가리지 않고 거의 항상 null이라(실제 확인) 못 쓴다. 대신 같은 응답에
+ * firstAnnualPayDate(첫 이자지급일)는 채워지는 경우가 많다 — 발행일부터
+ * 첫 지급일까지의 개월수를 재면 지급주기를 역산할 수 있다(실제 검증:
+ * Microsoft 2027 Notes 2017-02-06→2017-08-06=6개월, Alphabet 2054 Notes
+ * 2025-05-06→2026-05-06=12개월 — 둘 다 SEC 원문 확인값과 정확히 일치).
+ * 표준 주기(3/6/12개월)에서 ±1~2개월 벗어나도 그쪽으로 묶는다(영업일
+ * 조정 등으로 정확히 딱 떨어지지 않을 수 있어서).
+ */
+function frequencyFromFirstPayGap(
+  issueDate: string | null,
+  firstAnnualPayDate: string | null
+): number | null {
+  if (!issueDate || !firstAnnualPayDate) return null;
+  const im = issueDate.match(/^(\d{4})-(\d{2})-\d{2}$/);
+  const pm = firstAnnualPayDate.match(/^(\d{4})-(\d{2})-\d{2}$/);
+  if (!im || !pm) return null;
+  const diff =
+    (Number(pm[1]) - Number(im[1])) * 12 + (Number(pm[2]) - Number(im[2]));
+  if (diff >= 2 && diff <= 4) return 3;
+  if (diff >= 5 && diff <= 8) return 6;
+  if (diff >= 9 && diff <= 15) return 12;
+  return null;
 }
 
 export interface BondQuote {
@@ -457,9 +484,13 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
     return { bidYield: null, askYield: null, lastPriceYield: null } as BondQuote;
   });
 
+  const issueDate = typeof master?.issueDate === "string" ? master.issueDate : null;
+  const firstAnnualPayDate =
+    typeof master?.firstAnnualPayDate === "string" ? master.firstAnnualPayDate : null;
+
   return {
     isin,
-    issueDate: typeof master?.issueDate === "string" ? master.issueDate : null,
+    issueDate,
     maturityDate,
     couponRate,
     currency: typeof master?.issueCurrency === "string" ? master.issueCurrency : null,
@@ -467,5 +498,6 @@ export async function getBondDetail(isin: string): Promise<BondDetail> {
     bidYield: quote.bidYield,
     askYield: quote.askYield,
     lastPriceYield: quote.lastPriceYield,
+    couponFrequencyMonths: frequencyFromFirstPayGap(issueDate, firstAnnualPayDate),
   };
 }

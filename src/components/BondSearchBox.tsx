@@ -22,6 +22,7 @@ interface BondDetail {
   bidYield: number | null;
   askYield: number | null;
   lastPriceYield: number | null;
+  couponFrequencyMonths: number | null;
 }
 
 const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
@@ -234,6 +235,12 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
         // interest semi-annually"(6개월 이표)로 명시돼 있어 동일하게
         // 반영한다. 둘 다 안 하면 이전에 다른 종목에서 남은 값(예:
         // ACT/ACT나 Business/252)이 잘못 남을 수 있다.
+        // boerse-frankfurt의 interestPaymentPeriod 필드는 거의 항상 null이라
+        // 못 쓰지만, firstAnnualPayDate(첫 이자지급일)와 발행일 간격으로
+        // 지급주기를 역산할 수 있다(getBondDetail에서 계산해 내려줌, 실제
+        // 검증: Microsoft/Alphabet SEC 공시 원문과 정확히 일치). 국채가
+        // 아닌 회사채도 이 값이 있으면 기본값(6개월) 대신 실제값을 쓴다.
+        const realFrequency = frequencyFromMonths(data.couponFrequencyMonths);
         if (countrySlug === "united-states") {
           fields.calcBasis = "ACT/ACT" as CalcBasis;
           fields.couponFrequency = "6개월" as CouponFrequency;
@@ -241,24 +248,28 @@ export function BondSearchBox({ disabled, active, onApply }: BondSearchBoxProps)
           fields.calcBasis = "미국 30/360" as CalcBasis;
           fields.couponFrequency = "6개월" as CouponFrequency;
         } else {
-          // 이 API는 국가(주권) 발행자가 아니면 날짜계산기준/이자지급주기를
-          // 확정적으로 알 방법이 없다(회사채마다 다름). 위 두 경우가 아니면
-          // 이전에 선택했던 국채의 값(예: ACT/ACT)이 남지 않도록 앱 기본값
-          // (미국 30/360·6개월)으로 되돌린다. 실제 종목의 진짜 기준과 다를
-          // 수 있으니 필요시 직접 확인/수정해야 한다.
+          // 이 API는 국가(주권) 발행자가 아니면 날짜계산기준을 확정적으로
+          // 알 방법이 없다(회사채마다 다름). 위 두 경우가 아니면 이전에
+          // 선택했던 국채의 값(예: ACT/ACT)이 남지 않도록 앱 기본값(미국
+          // 30/360)으로 되돌린다. 실제 종목의 진짜 기준과 다를 수 있으니
+          // 필요시 직접 확인/수정해야 한다. 이자지급주기는 위에서 구한
+          // 실제값이 있으면 그걸, 없으면 기본값(6개월)을 쓴다.
           fields.calcBasis = "미국 30/360" as CalcBasis;
-          fields.couponFrequency = "6개월" as CouponFrequency;
+          fields.couponFrequency = (realFrequency ?? "6개월") as CouponFrequency;
         }
         onApply(fields);
         setDetailSlug(data.slug ?? bond.slug ?? null);
         // 국채(미국/브라질)는 날짜계산기준이 시장 관행상 확정적이라 그대로
-        // 믿을 수 있지만, 그 외 발행자(회사채 등)는 API가 정보를 안 줘
-        // 앱 기본값(미국 30/360·6개월)을 채워 넣은 것뿐이라 실제 종목의
-        // 진짜 기준과 다를 수 있다는 걸 알려준다.
+        // 믿을 수 있지만, 그 외 발행자(회사채 등)는 날짜계산기준을 API가
+        // 안 줘서 앱 기본값을 채워 넣은 것뿐이라 실제 종목의 진짜 기준과
+        // 다를 수 있다는 걸 알려준다(이자지급주기는 실제값을 구했으면 그
+        // 사실은 알린다).
         setStatus(
           countrySlug === "united-states" || countrySlug === "brazil"
             ? "OK"
-            : "날짜계산기준/이자지급주기는 기본값(미국 30/360·6개월)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
+            : realFrequency
+              ? "날짜계산기준은 기본값(미국 30/360)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
+              : "날짜계산기준/이자지급주기는 기본값(미국 30/360·6개월)입니다. 실제 종목과 다를 수 있어 직접 확인이 필요합니다."
         );
         setOpen(false);
 
