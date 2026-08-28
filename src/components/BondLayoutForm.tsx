@@ -74,8 +74,23 @@ function applyFieldsWithCurrencySync(
   // 수탁통화 KRW가 기본값) 그 값을 그대로 쓰고, 명시하지 않았으면 기존처럼
   // 거래통화와 같은 통화로 자동 연동한다.
   const custodyCurrency = fields.custodyCurrency ?? tradeCurrency;
+  // 수탁통화가 이전 선택(예: 브라질채권검색의 KRW)에서 바뀌면, 신탁투자금액도
+  // 이전 종목의 값이 남지 않도록 통화별 기본값으로 되돌린다.
+  const trustInvestmentAmount =
+    custodyCurrency === value.custodyCurrency
+      ? value.trustInvestmentAmount
+      : custodyCurrency === "KRW"
+        ? "100000000"
+        : "1000000";
   if (tradeCurrency === custodyCurrency) {
-    return { ...value, ...fields, custodyCurrency, purchaseFxRate: "1", maturityFxRate: "1" };
+    return {
+      ...value,
+      ...fields,
+      custodyCurrency,
+      purchaseFxRate: "1",
+      maturityFxRate: "1",
+      trustInvestmentAmount,
+    };
   }
   return {
     ...value,
@@ -83,7 +98,7 @@ function applyFieldsWithCurrencySync(
     custodyCurrency,
     purchaseFxRate: "",
     maturityFxRate: "",
-    trustInvestmentAmount: custodyCurrency === "KRW" ? "100000000" : "1000000",
+    trustInvestmentAmount,
   };
 }
 
