@@ -252,6 +252,8 @@ const KNOWN_LABELS = [
   "CUSIP / Common Code / ISIN:",
   "CUSIP / ISIN:",
   "CUSIP/ISIN:",
+  "CUSIP:",
+  "ISIN:",
   "Use of Proceeds:",
   "Issuer:",
 ];
@@ -429,6 +431,7 @@ function parseTrancheBlock(block: string): Omit<BondTranche, "label"> {
     section(block, "CUSIP / Common Code / ISIN:", otherLabels("CUSIP / Common Code / ISIN:")) ??
     section(block, "CUSIP / ISIN:", otherLabels("CUSIP / ISIN:")) ??
     section(block, "CUSIP/ISIN:", otherLabels("CUSIP/ISIN:")) ??
+    section(block, "ISIN:", otherLabels("ISIN:")) ??
     "";
 
   const maturityDate = parseUsDate(maturityRaw);
@@ -493,6 +496,7 @@ export function parseFwp(html: string): FwpParseResult {
     section(text, "CUSIP / Common Code / ISIN:", otherLabels("CUSIP / Common Code / ISIN:")) ??
     section(text, "CUSIP / ISIN:", otherLabels("CUSIP / ISIN:")) ??
     section(text, "CUSIP/ISIN:", otherLabels("CUSIP/ISIN:")) ??
+    section(text, "ISIN:", otherLabels("ISIN:")) ??
     "";
 
   const maturityDates = [...maturityRaw.matchAll(/[A-Za-z]+ \d{1,2},\s*\d{4}/g)].map((m) => parseUsDate(m[0]));
