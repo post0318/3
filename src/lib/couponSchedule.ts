@@ -1,4 +1,5 @@
 import { CouponFrequency } from "@/types/bondLayout";
+import { isBrazilBusinessDay } from "@/lib/brazilCalendar";
 
 const TRUST_MATURITY_LEAD_DAYS = 11;
 
@@ -31,7 +32,7 @@ export function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** 결제일 = 신탁계약일로부터 영업일(토/일 제외) n일 후 (WORKDAY, 공휴일 미반영) */
+/** 결제일 = 신탁계약일로부터 브라질 영업일(토/일 + ANBIMA/B3 국경일 제외) n일 후 */
 export function getSettlementDate(
   trustContractDate: string,
   businessDays = 2
@@ -43,8 +44,7 @@ export function getSettlementDate(
   let remaining = businessDays;
   while (remaining > 0) {
     date = addDays(date, 1);
-    const day = date.getDay();
-    if (day !== 0 && day !== 6) remaining--;
+    if (isBrazilBusinessDay(date)) remaining--;
   }
   return date;
 }
