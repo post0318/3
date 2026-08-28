@@ -412,8 +412,10 @@ function extractIssuer(text: string): string | null {
   // "NVIDIA Corporation (the "Company")"처럼 뒤에 문서 내 지칭용 정의어구가
   // 붙는 경우가 많다(실제 확인: NVIDIA/Alphabet, Microsoft는 없음). 종목명에
   // 불필요하므로 제거한다.
+  // "HSBC Holdings plc ("HSBC Holdings")"처럼 "the" 없이 약칭만 정의하는
+  // 경우도 있다(실제 확인: HSBC Holdings).
   const trimmed = raw
-    .replace(/\s*\(the\s+"[^"]*"\)\s*$/i, "")
+    .replace(/\s*\((?:the\s+)?"[^"]*"\)\s*$/i, "")
     .trim();
   return trimmed.length > 0 && trimmed.length < 100 ? trimmed : null;
 }
