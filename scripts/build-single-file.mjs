@@ -45,7 +45,7 @@ html = html.replace(
 // 코드를 텍스트로 그대로 넣으면 src 속성이 없어져 Turbopack 런타임의
 // registerChunk()가 document.currentScript.src를 null로 읽어 그 자리에서
 // "Cannot read properties of null (reading 'replace')" 오류가 나며 이후
-// 로직(예: 업로드 기능)이 조용히 실행되지 않는다. src를 data: URI로 유지해
+// 로직(예: 종목검색 반영)이 조용히 실행되지 않는다. src를 data: URI로 유지해
 // currentScript.src가 계속 문자열이 되도록 한다.
 html = html.replace(
   /<script src="([^"]+)"([^>]*)><\/script>/g,

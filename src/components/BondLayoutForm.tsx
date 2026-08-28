@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ChangeEvent,
   Dispatch,
   FocusEvent,
   KeyboardEvent,
@@ -26,7 +25,6 @@ import {
 import { computeBondPricing } from "@/lib/bondPricing";
 import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
 import { computeMaturitySummary } from "@/lib/maturitySummary";
-import { parseBondFile } from "@/lib/parseBondFile";
 import { encodeBondLink } from "@/lib/bondLink";
 import { BrazilBondSearchBox } from "@/components/BrazilBondSearchBox";
 
@@ -192,7 +190,6 @@ export function BondLayoutForm({
   onLockedChange,
   lockToggleDisabled = false,
 }: BondLayoutFormProps) {
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
 
   const update = <K extends keyof BondLayoutInput>(
@@ -300,27 +297,6 @@ export function BondLayoutForm({
     ]
   );
 
-  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    try {
-      const buffer = await file.arrayBuffer();
-      const parsed = parseBondFile(buffer);
-      const count = Object.keys(parsed).length;
-      if (count === 0) {
-        setUploadStatus("일치하는 항목을 찾지 못했습니다.");
-        return;
-      }
-      onChange({ ...value, ...parsed });
-      onLockedChange(true);
-      setUploadStatus(`${count}개 항목을 반영했습니다.`);
-    } catch {
-      setUploadStatus("파일을 읽는 중 오류가 발생했습니다.");
-    }
-  };
-
   const handleCreateLink = async () => {
     const link = encodeBondLink(value);
     try {
@@ -337,10 +313,9 @@ export function BondLayoutForm({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           입력 레이아웃
         </h2>
-        {/* 업로드로 걸린 잠금(locked)에서는 검색창을 계속 쓸 수 있어야 다른
-            종목을 검색해 새로 반영할 수 있다(검색으로 새 종목을 반영하면
-            onLockedChange(false)로 잠금을 풀고, 다시 업로드하면
-            handleUpload에서 다시 잠근다). 반면 공유 링크로 연 화면
+        {/* 편입자산정보가 잠겨 있어도 검색창은 계속 쓸 수 있어야 다른 종목을
+            검색해 새로 반영할 수 있다(검색으로 새 종목을 반영하면
+            onLockedChange(false)로 잠금을 푼다). 반면 공유 링크로 연 화면
             (lockToggleDisabled=isSharedLink)은 배포된 값을 그대로 봐야
             하므로 검색 자체를 막는다. */}
         <BrazilBondSearchBox
@@ -383,15 +358,6 @@ export function BondLayoutForm({
           </Row>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden md:col-span-2">
-          <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
-            업로드
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleUpload}
-            />
-          </label>
           <button
             type="button"
             onClick={handleCreateLink}
@@ -411,9 +377,9 @@ export function BondLayoutForm({
           >
             {locked ? "🔒 편입자산정보 잠김 (해제)" : "🔓 편입자산정보 잠금"}
           </button>
-          {(uploadStatus || linkStatus) && (
+          {linkStatus && (
             <p className="ml-2 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
-              {uploadStatus || linkStatus}
+              {linkStatus}
             </p>
           )}
         </div>

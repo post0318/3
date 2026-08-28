@@ -123,7 +123,7 @@ export default function Home() {
         <header className="mb-8 flex items-start justify-between gap-4 print:hidden">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              브라질국채 이자지급 신탁
+              채권세상
             </h1>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               브라질 국채(NTN-F) 이자를 월/반기/재투자 중 선택해 지급하는 상품
