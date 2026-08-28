@@ -51,18 +51,10 @@ const CALC_BASIS_BY_CODE: Record<number, CalcBasis> = {
 };
 
 const CURRENCY_TO_CODE: Record<Currency, number> = {
-  USD: 1,
-  EUR: 2,
-  CNY: 3,
-  JPY: 4,
   KRW: 0,
   BRL: 5,
 };
 const CURRENCY_BY_CODE: Record<number, Currency> = {
-  1: "USD",
-  2: "EUR",
-  3: "CNY",
-  4: "JPY",
   0: "KRW",
   5: "BRL",
 };

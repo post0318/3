@@ -42,7 +42,7 @@ const LABEL_TO_FIELD: Record<string, UploadableField> = {
   수탁통화: "custodyCurrency",
 };
 
-const CURRENCY_VALUES: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
+const CURRENCY_VALUES: Currency[] = ["KRW", "BRL"];
 
 const CALC_BASIS_VALUES: CalcBasis[] = [
   "미국 30/360",
@@ -62,7 +62,7 @@ const COUPON_FREQUENCY_VALUES: CouponFrequency[] = ["3개월", "6개월", "12개
  * 1. 이자지급 주기: 3개월=1, 6개월=2, 12개월=3
  * 2. 날짜계산 기준: 미국 30/360=1, ACT/ACT=2, ACT/360=3, ACT/365=4, 유럽 30/360=5
  * 3. 과세여부: 일반과세=1, 비과세(농특세)=2, 비과세=3
- * 4. 거래통화: USD=1, EUR=2, CNY=3, JPY=4, KRW=0
+ * 4. 거래통화: KRW=0
  */
 const TAX_STATUS_BY_CODE: Record<number, TaxStatus> = {
   1: "일반과세",
@@ -85,10 +85,6 @@ const COUPON_FREQUENCY_BY_CODE: Record<number, CouponFrequency> = {
 };
 
 const TRADE_CURRENCY_BY_CODE: Record<number, Currency> = {
-  1: "USD",
-  2: "EUR",
-  3: "CNY",
-  4: "JPY",
   0: "KRW",
 };
 

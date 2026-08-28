@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 브라질국채 이자지급 신탁
+
+브라질 국채(NTN-F) 이자를 월/반기/재투자 지급구분에 따라 분배하는 신탁 상품 현금흐름 계산기. 자세한 규칙은 [PRD.md](./PRD.md), 코드 규칙은 [claude.md](./claude.md) 참고.
+
+이 프로젝트는 [Next.js](https://nextjs.org) 기반이며 [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app)으로 시작되었습니다.
 
 ## Getting Started
 

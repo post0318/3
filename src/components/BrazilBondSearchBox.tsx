@@ -16,7 +16,6 @@ const NTNF_COUPON_RATE = "10";
 
 interface BrazilBondSearchBoxProps {
   disabled: boolean;
-  active: boolean;
   onApply: (fields: Partial<BondLayoutInput>) => void;
 }
 

@@ -232,7 +232,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
           - 상기 현금흐름은 단순계산에 의한 수익률이므로 실제 투자와 차이가
           있을 수 있습니다.
         </p>
-        <p>- 채권 이자는 만기일에 일시 지급합니다.</p>
+        <p>- 이자는 지급구분(월/반기/재투자)에 따라 지급됩니다.</p>
         <p>
           - 과세소득 등은 원화(KRW)로 산정되므로, 실제 과세소득과 세금,
           세후수령액은 다를 수 있습니다.

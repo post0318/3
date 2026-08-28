@@ -17,23 +17,24 @@ function todayDateString(): string {
 
 function createDefaultInput(): BondLayoutInput {
   return {
-    calcBasis: "미국 30/360",
+    calcBasis: "Business/252",
     investorType: "개인",
+    distributionType: "반기",
     name: "",
     issueDate: "",
     maturityDate: "",
     couponRate: "",
     couponFrequency: "6개월",
     recentCouponDate: "",
-    taxStatus: "일반과세",
+    taxStatus: "비과세",
     creditRating: "",
-    tradeCurrency: "USD",
-    custodyCurrency: "USD",
-    purchaseFxRate: "1",
-    maturityFxRate: "1",
+    tradeCurrency: "BRL",
+    custodyCurrency: "KRW",
+    purchaseFxRate: "",
+    maturityFxRate: "",
     trustContractDate: todayDateString(),
     purchaseYield: "0.00",
-    trustInvestmentAmount: "1000000",
+    trustInvestmentAmount: "100000000",
     frontFeeRate: "0.00",
     backFeeRate: "0.00",
     incomeTaxRate: "15.40",
@@ -58,27 +59,34 @@ export default function Home() {
   // 이 값은 바뀌지 않아, 공유 링크로 열었을 때는 잠금 버튼을 계속 비활성화해둔다.
   const [isSharedLink] = useState<boolean>(createInitialLocked);
 
+  // 1단계는 반기지급만 지원한다. 월/재투자는 아직 계산 로직이 없어 잘못된
+  // 숫자를 보여주지 않도록 아예 계산하지 않고 "준비 중" 안내만 표시한다.
+  const isDistributionSupported = input.distributionType === "반기";
+
   const cashFlowRows = useMemo(
     () =>
-      generateFixCashFlow({
-        maturityDate: input.maturityDate,
-        couponRate: input.couponRate,
-        couponFrequency: input.couponFrequency,
-        purchaseYield: input.purchaseYield,
-        calcBasis: input.calcBasis,
-        trustContractDate: input.trustContractDate,
-        recentCouponDate: input.recentCouponDate,
-        tradeCurrency: input.tradeCurrency,
-        custodyCurrency: input.custodyCurrency,
-        purchaseFxRate: input.purchaseFxRate,
-        maturityFxRate: input.maturityFxRate,
-        trustInvestmentAmount: input.trustInvestmentAmount,
-        frontFeeRate: input.frontFeeRate,
-        backFeeRate: input.backFeeRate,
-        investorType: input.investorType,
-        taxStatus: input.taxStatus,
-      }),
+      !isDistributionSupported
+        ? null
+        : generateFixCashFlow({
+            maturityDate: input.maturityDate,
+            couponRate: input.couponRate,
+            couponFrequency: input.couponFrequency,
+            purchaseYield: input.purchaseYield,
+            calcBasis: input.calcBasis,
+            trustContractDate: input.trustContractDate,
+            recentCouponDate: input.recentCouponDate,
+            tradeCurrency: input.tradeCurrency,
+            custodyCurrency: input.custodyCurrency,
+            purchaseFxRate: input.purchaseFxRate,
+            maturityFxRate: input.maturityFxRate,
+            trustInvestmentAmount: input.trustInvestmentAmount,
+            frontFeeRate: input.frontFeeRate,
+            backFeeRate: input.backFeeRate,
+            investorType: input.investorType,
+            taxStatus: input.taxStatus,
+          }),
     [
+      isDistributionSupported,
       input.maturityDate,
       input.couponRate,
       input.couponFrequency,
@@ -114,10 +122,11 @@ export default function Home() {
         <header className="mb-8 flex items-start justify-between gap-4 print:hidden">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              채권세상
+              브라질국채 이자지급 신탁
             </h1>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              채권정보만 입력하면 현금흐름을 보여주는 서비스
+              브라질 국채(NTN-F) 이자를 월/반기/재투자 중 선택해 지급하는 상품
+              현금흐름 계산기
             </p>
           </div>
           <button
@@ -137,10 +146,22 @@ export default function Home() {
             onLockedChange={setLocked}
             lockToggleDisabled={isSharedLink}
           />
-          <CashFlowTable
-            rows={cashFlowRows}
-            custodyCurrency={input.custodyCurrency}
-          />
+          {isDistributionSupported ? (
+            <CashFlowTable
+              rows={cashFlowRows}
+              custodyCurrency={input.custodyCurrency}
+            />
+          ) : (
+            <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6">
+              <h2 className="mb-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                지급이력표
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                &ldquo;{input.distributionType}&rdquo; 지급구분은 아직 준비
+                중입니다. 현재는 &ldquo;반기&rdquo;만 계산을 지원합니다.
+              </p>
+            </section>
+          )}
         </div>
       </main>
     </div>

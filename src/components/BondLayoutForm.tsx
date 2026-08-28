@@ -14,7 +14,7 @@ import {
   BondLayoutInput,
   CalcBasis,
   CouponFrequency,
-  Currency,
+  DistributionType,
   InvestorType,
   TaxStatus,
 } from "@/types/bondLayout";
@@ -29,9 +29,6 @@ import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
 import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { parseBondFile } from "@/lib/parseBondFile";
 import { encodeBondLink } from "@/lib/bondLink";
-import { BondSearchBox } from "@/components/BondSearchBox";
-import { UsBondSearchBox } from "@/components/UsBondSearchBox";
-import { KoreaBondSearchBox } from "@/components/KoreaBondSearchBox";
 import { BrazilBondSearchBox } from "@/components/BrazilBondSearchBox";
 
 function formatAmount(n: number): string {
@@ -54,52 +51,6 @@ function formatSettlementAmount(n: number, isKrw: boolean): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-/**
- * 종목검색 결과를 반영할 때 거래통화가 함께 바뀌면 수탁통화도 기본으로
- * 따라가도록 한다(거래통화 우선, 동일 통화가 기본값). 거래통화-수탁통화가
- * 같으면 환율은 1로 고정, 다르면 사용자가 직접 입력해야 하므로 비워둔다.
- * 거래통화 셀렉트를 수동으로 바꿀 때의 동작과 동일하다.
- */
-function applyFieldsWithCurrencySync(
-  value: BondLayoutInput,
-  fields: Partial<BondLayoutInput>
-): BondLayoutInput {
-  const tradeCurrency = fields.tradeCurrency;
-  if (!tradeCurrency) {
-    return { ...value, ...fields };
-  }
-  // 검색 쪽에서 수탁통화를 명시했으면(예: 브라질채권검색은 거래통화 BRL,
-  // 수탁통화 KRW가 기본값) 그 값을 그대로 쓰고, 명시하지 않았으면 기존처럼
-  // 거래통화와 같은 통화로 자동 연동한다.
-  const custodyCurrency = fields.custodyCurrency ?? tradeCurrency;
-  // 수탁통화가 이전 선택(예: 브라질채권검색의 KRW)에서 바뀌면, 신탁투자금액도
-  // 이전 종목의 값이 남지 않도록 통화별 기본값으로 되돌린다.
-  const trustInvestmentAmount =
-    custodyCurrency === value.custodyCurrency
-      ? value.trustInvestmentAmount
-      : custodyCurrency === "KRW"
-        ? "100000000"
-        : "1000000";
-  if (tradeCurrency === custodyCurrency) {
-    return {
-      ...value,
-      ...fields,
-      custodyCurrency,
-      purchaseFxRate: "1",
-      maturityFxRate: "1",
-      trustInvestmentAmount,
-    };
-  }
-  return {
-    ...value,
-    ...fields,
-    custodyCurrency,
-    purchaseFxRate: "",
-    maturityFxRate: "",
-    trustInvestmentAmount,
-  };
 }
 
 interface BondLayoutFormProps {
@@ -125,7 +76,7 @@ const TAX_STATUS_OPTIONS: TaxStatus[] = ["일반과세", "비과세(농특세)",
 
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
-const CURRENCY_OPTIONS: Currency[] = ["USD", "EUR", "CNY", "JPY", "KRW", "BRL"];
+const DISTRIBUTION_TYPE_OPTIONS: DistributionType[] = ["반기", "월", "재투자"];
 
 const cellBase = "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;
@@ -246,14 +197,6 @@ export function BondLayoutForm({
 }: BondLayoutFormProps) {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [linkStatus, setLinkStatus] = useState<string | null>(null);
-  const [activeSearchBox, setActiveSearchBox] = useState<
-    "general" | "us" | "kr" | "br" | null
-  >(null);
-  // 신용등급이 SEC 공시서류(FWP) 기준 값인지(미국채권검색의 회사채만
-  // 해당) 표시해 라벨을 "신용등급(공시기준)"으로 바꾸는 데 쓴다. 다른
-  // 출처(국채/한국/브라질/종목검색/수기입력/업로드)로 바뀌면 false로
-  // 되돌린다.
-  const [disclosureRating, setDisclosureRating] = useState(false);
 
   const update = <K extends keyof BondLayoutInput>(
     key: K,
@@ -375,7 +318,6 @@ export function BondLayoutForm({
       }
       onChange({ ...value, ...parsed });
       onLockedChange(true);
-      setDisclosureRating(false);
       setUploadStatus(`${count}개 항목을 반영했습니다.`);
     } catch {
       setUploadStatus("파일을 읽는 중 오류가 발생했습니다.");
@@ -404,46 +346,11 @@ export function BondLayoutForm({
             handleUpload에서 다시 잠근다). 반면 공유 링크로 연 화면
             (lockToggleDisabled=isSharedLink)은 배포된 값을 그대로 봐야
             하므로 검색 자체를 막는다. */}
-        <BondSearchBox
-          disabled={lockToggleDisabled}
-          active={activeSearchBox === "general"}
-          onApply={(fields) => {
-            setActiveSearchBox("general");
-            onLockedChange(false);
-            setDisclosureRating(false);
-            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
-          }}
-        />
-        <UsBondSearchBox
-          disabled={lockToggleDisabled}
-          active={activeSearchBox === "us"}
-          onApply={(fields, meta) => {
-            setActiveSearchBox("us");
-            onLockedChange(false);
-            if (meta?.disclosureRating !== undefined) {
-              setDisclosureRating(meta.disclosureRating);
-            }
-            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
-          }}
-        />
-        <KoreaBondSearchBox
-          disabled={lockToggleDisabled}
-          active={activeSearchBox === "kr"}
-          onApply={(fields) => {
-            setActiveSearchBox("kr");
-            onLockedChange(false);
-            setDisclosureRating(false);
-            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
-          }}
-        />
         <BrazilBondSearchBox
           disabled={lockToggleDisabled}
-          active={activeSearchBox === "br"}
           onApply={(fields) => {
-            setActiveSearchBox("br");
             onLockedChange(false);
-            setDisclosureRating(false);
-            onChange((prev) => applyFieldsWithCurrencySync(prev, fields));
+            onChange((prev) => ({ ...prev, ...fields }));
           }}
         />
       </div>
@@ -621,17 +528,14 @@ export function BondLayoutForm({
             </select>
             <PrintValue value={value.calcBasis} />
           </Row>
-          <Row label={disclosureRating ? "신용등급(공시기준)" : "신용등급"} editable>
+          <Row label="신용등급" editable>
             <input
               className={inputClass}
               type="text"
               placeholder="예: 무디스: Aa2 / S&P: AA"
               value={value.creditRating}
               disabled={locked}
-              onChange={(e) => {
-                setDisclosureRating(false);
-                update("creditRating", e.target.value);
-              }}
+              onChange={(e) => update("creditRating", e.target.value)}
               onKeyDown={commitOnEnter}
             />
           </Row>
@@ -655,96 +559,11 @@ export function BondLayoutForm({
           <Row label=" " blank>
             <BlankValue />
           </Row>
-          <Row label="거래통화" editable>
-            <select
-              className={`${inputClass} print:hidden`}
-              value={value.tradeCurrency}
-              onChange={(e) => {
-                const tradeCurrency = e.target.value as Currency;
-                if (tradeCurrency === value.custodyCurrency) {
-                  onChange({
-                    ...value,
-                    tradeCurrency,
-                    purchaseFxRate: "1",
-                    maturityFxRate: "1",
-                    trustInvestmentAmount:
-                      tradeCurrency === "KRW" ? "100000000" : "1000000",
-                  });
-                  return;
-                }
-                onChange({
-                  ...value,
-                  tradeCurrency,
-                  custodyCurrency: tradeCurrency,
-                  purchaseFxRate: "1",
-                  maturityFxRate: "1",
-                  trustInvestmentAmount:
-                    tradeCurrency === "KRW" ? "100000000" : "1000000",
-                });
-              }}
-            >
-              {CURRENCY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <PrintValue value={value.tradeCurrency} />
+          <Row label="거래통화">
+            <span className="text-sm text-zinc-900 dark:text-zinc-100">BRL</span>
           </Row>
-          <Row label="수탁통화" editable>
-            <select
-              className={`${inputClass} print:hidden`}
-              value={value.custodyCurrency}
-              onChange={(e) => {
-                const custodyCurrency = e.target.value as Currency;
-                if (custodyCurrency === value.tradeCurrency) {
-                  onChange({
-                    ...value,
-                    custodyCurrency,
-                    purchaseFxRate: "1",
-                    maturityFxRate: "1",
-                    trustInvestmentAmount:
-                      custodyCurrency === "KRW" ? "100000000" : "1000000",
-                  });
-                  return;
-                }
-                onChange({
-                  ...value,
-                  custodyCurrency,
-                  purchaseFxRate: "",
-                  maturityFxRate: "",
-                  trustInvestmentAmount:
-                    custodyCurrency === "KRW" ? "100000000" : "1000000",
-                });
-                // 거래통화와 수탁통화가 달라지면 환율을 직접 입력해야 하던
-                // 것을, 현재 환율을 자동 조회해 기본값으로 채워 넣는다
-                // (필요하면 사용자가 직접 수정 가능).
-                const tradeCurrency = value.tradeCurrency;
-                fetch(
-                  `/api/fx-rate?base=${encodeURIComponent(tradeCurrency)}&quote=${encodeURIComponent(custodyCurrency)}`
-                )
-                  .then((res) => res.json())
-                  .then((data: { rate?: number | null }) => {
-                    if (typeof data.rate === "number") {
-                      const rate = String(data.rate);
-                      onChange((prev) =>
-                        prev.tradeCurrency === tradeCurrency &&
-                        prev.custodyCurrency === custodyCurrency
-                          ? { ...prev, purchaseFxRate: rate, maturityFxRate: rate }
-                          : prev
-                      );
-                    }
-                  })
-                  .catch(() => {});
-              }}
-            >
-              {CURRENCY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <PrintValue value={value.custodyCurrency} />
+          <Row label="수탁통화">
+            <span className="text-sm text-zinc-900 dark:text-zinc-100">KRW</span>
           </Row>
         </GroupCard>
 
@@ -941,6 +760,22 @@ export function BondLayoutForm({
         </GroupCard>
 
         <GroupCard title="상품수익률">
+          <Row label="지급구분" editable strong>
+            <select
+              className={`${inputClass} print:hidden font-bold`}
+              value={value.distributionType}
+              onChange={(e) =>
+                update("distributionType", e.target.value as DistributionType)
+              }
+            >
+              {DISTRIBUTION_TYPE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            <PrintValue value={value.distributionType} />
+          </Row>
           <Row label="신탁계약일" editable>
             <input
               className={inputClass}
