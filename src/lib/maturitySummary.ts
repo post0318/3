@@ -18,14 +18,15 @@ export interface MaturitySummaryInputs {
 
 export interface MaturitySummary {
   lastBackFee: number;
-  preTaxMaturityAmount: number;
+  /** 신탁투자금액에서 첫 이자지급 시 돌려받는 경과이자(매수 시 선지급분)를 뺀 실투자원금 */
+  investedPrincipal: number;
+  totalInterest: number;
   postTaxMaturityAmount: number;
-  preTaxYield: number;
   postTaxYield: number;
   bankEquivalentYield: number;
 }
 
-/** 만기시 세전/세후금액, 세전/세후수익률, 은행환산수익률 (fix.xlsx G10~G15) */
+/** 실투자원금, 이자총액, 만기시 세후금액, 세후수익률, 은행환산수익률 (fix.xlsx G10~G15) */
 export function computeMaturitySummary(
   pricing: BondPricingResult,
   rows: CashFlowRow[],
@@ -57,16 +58,10 @@ export function computeMaturitySummary(
   const totalPrincipal = rows.reduce((sum, row) => sum + row.principal, 0);
   const totalNetAmount = rows.reduce((sum, row) => sum + row.netAmount, 0);
 
-  const totalBackFeeEstimate =
-    ((principal * (backFeeRate / 100)) / 365) * investmentDays;
-
-  const preTaxMaturityAmount = roundDown(
-    totalInterest +
-      totalPrincipal +
-      pricing.cashBalance -
-      totalBackFeeEstimate,
-    2
-  );
+  // 첫 이자지급 회차의 (이자 - 과세소득)은 매수 시 선지급한 경과이자로,
+  // 첫 이자지급 때 그대로 돌려받는다. 실제 투자에 묶인 원금은 이만큼 작다.
+  const preOwnedInterest = rows[0].interest - rows[0].taxableIncome;
+  const investedPrincipal = roundDown(principal - preOwnedInterest, 2);
 
   const lastBackFee = roundDown(
     ((principal * (backFeeRate / 100)) / 365) * TRUST_MATURITY_LEAD_DAYS,
@@ -78,8 +73,6 @@ export function computeMaturitySummary(
     2
   );
 
-  const preTaxYield =
-    ((preTaxMaturityAmount - principal) / principal) * (365 / investmentDays);
   const postTaxYield =
     ((postTaxMaturityAmount - principal) / principal) * (365 / investmentDays);
   const parsedComprehensiveTaxRate = Number(input.comprehensiveTaxRate);
@@ -91,9 +84,9 @@ export function computeMaturitySummary(
 
   return {
     lastBackFee,
-    preTaxMaturityAmount,
+    investedPrincipal,
+    totalInterest,
     postTaxMaturityAmount,
-    preTaxYield,
     postTaxYield,
     bankEquivalentYield,
   };

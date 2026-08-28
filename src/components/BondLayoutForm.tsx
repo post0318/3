@@ -795,18 +795,6 @@ export function BondLayoutForm({
               }
             />
           </Row>
-          <Row label="만기시 세전금액">
-            {maturitySummary ? (
-              <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {formatSettlementAmount(
-                  maturitySummary.preTaxMaturityAmount,
-                  value.custodyCurrency === "KRW"
-                )}
-              </span>
-            ) : (
-              <ComputedValue />
-            )}
-          </Row>
           <Row label="현금성이율(%)" editable>
             <input
               className={inputClass}
@@ -826,11 +814,11 @@ export function BondLayoutForm({
               onKeyDown={commitOnEnter}
             />
           </Row>
-          <Row label="만기시 세후금액">
+          <Row label="투자원금">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
-                  maturitySummary.postTaxMaturityAmount,
+                  maturitySummary.investedPrincipal,
                   value.custodyCurrency === "KRW"
                 )}
               </span>
@@ -838,10 +826,25 @@ export function BondLayoutForm({
               <ComputedValue />
             )}
           </Row>
-          <Row label="세전수익률">
+          <Row label="이자총액">
             {maturitySummary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {(maturitySummary.preTaxYield * 100).toFixed(2)}%
+                {formatSettlementAmount(
+                  maturitySummary.totalInterest,
+                  value.custodyCurrency === "KRW"
+                )}
+              </span>
+            ) : (
+              <ComputedValue />
+            )}
+          </Row>
+          <Row label="만기시 세후금액">
+            {maturitySummary ? (
+              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+                {formatSettlementAmount(
+                  maturitySummary.postTaxMaturityAmount,
+                  value.custodyCurrency === "KRW"
+                )}
               </span>
             ) : (
               <ComputedValue />
