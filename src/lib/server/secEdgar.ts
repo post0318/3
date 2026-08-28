@@ -689,11 +689,49 @@ export async function getRecentBondList(
  * 발행한 적이 있으면, 그 트랜치의 진짜 값(등급/지급주기/날짜계산기준)을
  * 대신 쓴다.
  */
+/**
+ * getRecentBondList는 최근 N건(기본 15건)만 훑는데, HSBC처럼 발행이 잦은
+ * 회사는 몇 년 전 채권이 그 범위 밖으로 밀려나 못 찾는다(실제 확인:
+ * HSBC 2020년 채권 US404280CK33). 조회범위를 무작정 늘리면 SEC 요청이
+ * 비례해서 늘어 느려지고 429/503 위험도 커진다. 대신 EDGAR 전문검색
+ * (efts.sec.gov, 전체 공시 이력을 인덱싱해둠)에 ISIN을 그대로 검색하면
+ * 요청 1번으로 정확한 문서를 즉시 찾을 수 있다.
+ */
+async function findFwpByIsinFullText(
+  isin: string
+): Promise<{ indexUrl: string; filedDate: string; cik: string } | null> {
+  try {
+    const url = `https://efts.sec.gov/LATEST/search-index?q=%22${isin}%22&forms=FWP`;
+    const json = await fetchText(url);
+    const data = JSON.parse(json) as {
+      hits?: {
+        hits?: Array<{ _source?: { ciks?: string[]; adsh?: string; file_date?: string } }>;
+      };
+    };
+    const source = data.hits?.hits?.[0]?._source;
+    const cikRaw = source?.ciks?.[0];
+    const adsh = source?.adsh;
+    if (!cikRaw || !adsh) return null;
+    const cik = String(parseInt(cikRaw, 10));
+    const adshNoDashes = adsh.replace(/-/g, "");
+    const indexUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${adsh}-index.htm`;
+    return { indexUrl, filedDate: source?.file_date ?? "", cik: cikRaw };
+  } catch {
+    return null;
+  }
+}
+
 export async function findBondByIsin(cik: string, isin: string): Promise<BondTranche | null> {
   const list = await getRecentBondList(cik, 15, false);
   const match = list.find((item) => item.isin === isin);
-  if (!match) return null;
-  const detail = await fetchFwpDetail(match.indexUrl, cik, match.filedDate);
+  if (match) {
+    const detail = await fetchFwpDetail(match.indexUrl, cik, match.filedDate);
+    return detail.tranches.find((t) => t.isin === isin) ?? null;
+  }
+
+  const found = await findFwpByIsinFullText(isin);
+  if (!found) return null;
+  const detail = await fetchFwpDetail(found.indexUrl, found.cik, found.filedDate);
   return detail.tranches.find((t) => t.isin === isin) ?? null;
 }
 
