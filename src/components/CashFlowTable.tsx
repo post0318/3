@@ -28,7 +28,9 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
   const columns = [
     "이자계산일",
     "원금",
+    "보유현금",
     "이자",
+    "현금이자",
     "과세소득",
     "과세표준",
     "소득세",
@@ -40,6 +42,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
     (acc, row) => ({
       principal: acc.principal + row.principal,
       interest: acc.interest + row.interest,
+      cashInterest: acc.cashInterest + row.cashInterest,
       taxableIncome: acc.taxableIncome + row.taxableIncome,
       incomeTax: acc.incomeTax + row.incomeTax,
       specialTax: acc.specialTax + (row.specialTax ?? 0),
@@ -48,6 +51,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
     {
       principal: 0,
       interest: 0,
+      cashInterest: 0,
       taxableIncome: 0,
       incomeTax: 0,
       specialTax: 0,
@@ -72,7 +76,13 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
         {row.principal ? formatAmount(row.principal, isKrw) : ""}
       </td>
       <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+        {formatAmount(row.cashBalance, isKrw)}
+      </td>
+      <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
         {formatAmount(row.interest, isKrw)}
+      </td>
+      <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+        {row.cashInterest ? formatAmount(row.cashInterest, isKrw) : ""}
       </td>
       <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
         {formatAmount(row.taxableIncome, isKrw)}
@@ -109,7 +119,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
         <>
           {/* 화면: 전체 행 표시 */}
           <div className="overflow-x-auto print:hidden">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-100 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                   {columns.map((col, i) => (
@@ -133,8 +143,12 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.principal, isKrw)}
                   </td>
+                  <td className="py-2 pr-4" />
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.interest, isKrw)}
+                  </td>
+                  <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
+                    {formatAmount(total.cashInterest, isKrw)}
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.taxableIncome, isKrw)}
@@ -158,7 +172,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
 
           {/* 인쇄: 앞/뒤 일부만 표시하고 중간은 생략 */}
           <div className="hidden overflow-x-auto print:block">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-100 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                   {columns.map((col, i) => (
@@ -195,8 +209,12 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.principal, isKrw)}
                   </td>
+                  <td className="py-2 pr-4" />
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.interest, isKrw)}
+                  </td>
+                  <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
+                    {formatAmount(total.cashInterest, isKrw)}
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                     {formatAmount(total.taxableIncome, isKrw)}
@@ -232,7 +250,7 @@ export function CashFlowTable({ rows, custodyCurrency }: CashFlowTableProps) {
           - 상기 현금흐름은 단순계산에 의한 수익률이므로 실제 투자와 차이가
           있을 수 있습니다.
         </p>
-        <p>- 이자는 지급구분(월/반기/재투자)에 따라 지급됩니다.</p>
+        <p>- 이자는 지급구분(월/반기)에 따라 지급됩니다.</p>
         <p>
           - 과세소득 등은 원화(KRW)로 산정되므로, 실제 과세소득과 세금,
           세후수령액은 다를 수 있습니다.

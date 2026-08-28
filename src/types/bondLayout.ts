@@ -15,8 +15,8 @@ export type Currency = "KRW" | "BRL";
 
 export type TaxStatus = "일반과세" | "비과세(농특세)" | "비과세";
 
-/** 지급구분: 월/재투자는 준비 중(1단계는 반기만 지원) */
-export type DistributionType = "월" | "반기" | "재투자";
+/** 지급구분: 월은 준비 중(1단계는 반기만 지원). 재투자형은 후속 검토 대상이라 선택지에서 제외 */
+export type DistributionType = "월" | "반기";
 
 export interface BondLayoutInput {
   calcBasis: CalcBasis;
@@ -43,6 +43,6 @@ export interface BondLayoutInput {
   frontFeeRate: string;
   backFeeRate: string;
   incomeTaxRate: string;
-  /** 현금성이율(%): 미투자 현금잔액(KRW)에 적용하는 이율 — 규칙5(월/재투자 단계) 대비 입력값 */
+  /** 현금성이율(%): 보유현금(KRW)에 적용하는 단리 이율 (PRD 규칙5) */
   cashInterestRate: string;
 }

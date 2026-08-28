@@ -63,9 +63,11 @@ export function computeMaturitySummary(
   const totalPrincipal = rows.reduce((sum, row) => sum + row.principal, 0);
   const totalNetAmount = rows.reduce((sum, row) => sum + row.netAmount, 0);
 
-  // 첫 이자지급 회차의 (이자 - 과세소득)은 매수 시 선지급한 경과이자로,
-  // 첫 이자지급 때 그대로 돌려받는다. 실제 투자에 묶인 원금은 이만큼 작다.
-  const preOwnedInterest = rows[0].interest - rows[0].taxableIncome;
+  // 첫 이자지급 회차에서 (채권쿠폰 - 채권쿠폰 과세분)은 매수 시 선지급한
+  // 경과이자로, 첫 이자지급 때 그대로 돌려받는다. 실제 투자에 묶인 원금은
+  // 이만큼 작다. taxableIncome에는 보유현금 이자도 섞여 있으므로 빼고 본다.
+  const bondTaxableRow0 = rows[0].taxableIncome - rows[0].cashInterest;
+  const preOwnedInterest = rows[0].interest - bondTaxableRow0;
   const investedPrincipal = roundDown(principal - preOwnedInterest, 2);
 
   const lastBackFee = roundDown(

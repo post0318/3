@@ -60,7 +60,7 @@ export default function Home() {
   // 이 값은 바뀌지 않아, 공유 링크로 열었을 때는 잠금 버튼을 계속 비활성화해둔다.
   const [isSharedLink] = useState<boolean>(createInitialLocked);
 
-  // 1단계는 반기지급만 지원한다. 월/재투자는 아직 계산 로직이 없어 잘못된
+  // 1단계는 반기지급만 지원한다. 월 지급은 아직 계산 로직이 없어 잘못된
   // 숫자를 보여주지 않도록 아예 계산하지 않고 "준비 중" 안내만 표시한다.
   const isDistributionSupported = input.distributionType === "반기";
 
@@ -83,6 +83,7 @@ export default function Home() {
             trustInvestmentAmount: input.trustInvestmentAmount,
             frontFeeRate: input.frontFeeRate,
             backFeeRate: input.backFeeRate,
+            cashInterestRate: input.cashInterestRate,
             investorType: input.investorType,
             taxStatus: input.taxStatus,
           }),
@@ -102,6 +103,7 @@ export default function Home() {
       input.trustInvestmentAmount,
       input.frontFeeRate,
       input.backFeeRate,
+      input.cashInterestRate,
       input.investorType,
       input.taxStatus,
     ]
@@ -126,7 +128,7 @@ export default function Home() {
               채권세상
             </h1>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              브라질 국채(NTN-F) 이자를 월/반기/재투자 중 선택해 지급하는 상품
+              브라질 국채(NTN-F) 이자를 월/반기 중 선택해 지급하는 상품
               현금흐름 계산기
             </p>
           </div>

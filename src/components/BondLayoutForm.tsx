@@ -71,7 +71,7 @@ const INVESTOR_TYPE_OPTIONS: InvestorType[] = ["개인", "일반법인", "금융
 
 const COUPON_FREQUENCY_OPTIONS: CouponFrequency[] = ["3개월", "6개월", "12개월"];
 
-const DISTRIBUTION_TYPE_OPTIONS: DistributionType[] = ["반기", "월", "재투자"];
+const DISTRIBUTION_TYPE_OPTIONS: DistributionType[] = ["반기", "월"];
 
 const cellBase = "flex items-center whitespace-nowrap px-3 py-2 print:py-1 text-sm border border-zinc-200 dark:border-zinc-800";
 const labelCellClass = `${cellBase} bg-zinc-50 font-medium text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400`;
@@ -246,6 +246,7 @@ export function BondLayoutForm({
         trustInvestmentAmount: value.trustInvestmentAmount,
         frontFeeRate: value.frontFeeRate,
         backFeeRate: value.backFeeRate,
+        cashInterestRate: value.cashInterestRate,
         investorType: value.investorType,
         taxStatus: value.taxStatus,
       }),
@@ -264,6 +265,7 @@ export function BondLayoutForm({
       value.trustInvestmentAmount,
       value.frontFeeRate,
       value.backFeeRate,
+      value.cashInterestRate,
       value.investorType,
       value.taxStatus,
     ]

@@ -12,7 +12,13 @@ import { getEffectiveIncomeTaxRate } from "@/lib/taxRules";
 export interface CashFlowRow {
   date: string;
   principal: number;
+  /** 이번 회차 구간에 유지된 보유현금(KRW). 반기지급에서는 결제 후 현금잔액으로 고정 */
+  cashBalance: number;
+  /** 채권 쿠폰 이자만 (현금잔액 이자는 제외) */
   interest: number;
+  /** 직전 지급일~이번 지급일 구간 보유현금(KRW)에 대한 단리 이자 */
+  cashInterest: number;
+  /** 채권 쿠폰 과세분 + 보유현금 이자 */
   taxableIncome: number;
   taxBase: number;
   incomeTax: number;
@@ -35,6 +41,7 @@ export interface CashFlowScheduleInputs {
   trustInvestmentAmount: string;
   frontFeeRate: string;
   backFeeRate: string;
+  cashInterestRate: string;
   investorType: InvestorType;
   taxStatus: TaxStatus;
 }
@@ -71,6 +78,7 @@ export function generateFixCashFlow(
   const frontFeeAmount = Math.trunc(
     trustInvestmentAmount * (Number(input.frontFeeRate) / 100)
   );
+  const cashInterestRate = Number(input.cashInterestRate) || 0;
 
   // 이자계산일 목록: 결제일 이후 첫 이표일부터 만기일까지 (만기일 그대로 마지막 원금상환일)
   const dates: Date[] = [];
@@ -105,22 +113,33 @@ export function generateFixCashFlow(
   let periodStart = contractDate;
   let carryFrontFee = frontFeeAmount;
   let carryBackFeeResidual = 0;
+  // 결제 후 신탁 내 보유현금. 반기지급에서는 쿠폰·현금이자가 매 회차 그대로
+  // 투자자에게 지급돼(전기와 당기간 발생분은 당기 지급) 남는 금액이 없으므로
+  // 만기까지 불변이다. 월 지급 단계에서는 부분지급 잔액이 회차마다 합산된다.
+  const runningCashBalance = pricing.cashBalance;
 
   dates.forEach((date, index) => {
     const isMaturity = toTime(date) === toTime(maturity);
     const principal = truncByCurrency(isMaturity ? pricing.faceValue * maturityFxRate : 0);
     const interest = truncByCurrency(couponAmount);
 
-    let taxableIncome: number;
+    // 직전 지급일~이번 지급일 구간 보유현금 단리 이자 (신탁계약일 기산, 만기일 종료)
+    const cashInterest = truncByCurrency(
+      (runningCashBalance * (cashInterestRate / 100) / 365) *
+        daysBetween(periodStart, date)
+    );
+
+    let bondTaxableIncome: number;
     if (index === 0) {
       // couponAmount(이번 회차 이자, 브라질은 복리환산 쿠폰)와 같은 기준으로
       // 경과분을 계산해야 "이자-경과이자"가 일치한다. 별도로 단순금리(rate)를
       // 다시 곱해 계산하면 브라질처럼 쿠폰이 복리환산인 경우 어긋난다.
       const preOwnedInterest = couponAmount * pricing.accrualFraction * freqPerYear;
-      taxableIncome = truncByCurrency(couponAmount - preOwnedInterest);
+      bondTaxableIncome = truncByCurrency(couponAmount - preOwnedInterest);
     } else {
-      taxableIncome = interest;
+      bondTaxableIncome = interest;
     }
+    const taxableIncome = bondTaxableIncome + cashInterest;
 
     const availableFrontFee = carryFrontFee;
     const backFeeThisPeriod =
@@ -142,13 +161,15 @@ export function generateFixCashFlow(
         ? truncByCurrency(taxBase * specialTaxRate)
         : null;
     const netAmount = truncByCurrency(
-      interest - backFeeThisPeriod - incomeTax - (specialTax ?? 0)
+      interest + cashInterest - backFeeThisPeriod - incomeTax - (specialTax ?? 0)
     );
 
     rows.push({
       date: date.toISOString().slice(0, 10),
       principal,
+      cashBalance: truncByCurrency(runningCashBalance),
       interest,
+      cashInterest,
       taxableIncome,
       taxBase,
       incomeTax,

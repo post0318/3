@@ -70,6 +70,8 @@ const INVESTOR_TYPE_BY_CODE: Record<number, InvestorType> = {
   3: "금융법인",
 };
 
+// unpack이 받아들이는 최소 필드 수. 뒤에 붙는 필드(cashInterestRate 등)는
+// 옛 링크엔 없을 수 있어 optional로 읽으므로 이 값은 올리지 않는다.
 const FIELD_COUNT = 20;
 
 const MS_PER_DAY = 86400000;
@@ -108,7 +110,7 @@ function restoreDateDashes(compact: string): string {
 }
 
 /**
- * 화면 전체 입력값(20개 필드)을 "|" 구분 문자열로 압축한다. 링크를 열면
+ * 화면 전체 입력값(21개 필드)을 "|" 구분 문자열로 압축한다. 링크를 열면
  * 원본과 동일한 값으로 시작하고, 이후 영업점이 매수내역/상품수익률 항목을
  * 직접 수정하면 그때부터 달라진다. 코드값(이자지급주기/과세여부/날짜계산
  * 기준/통화/소득자구분)을 써서 JSON 키 이름 없이 값만 나열하므로 링크
@@ -136,6 +138,7 @@ function pack(value: BondLayoutInput): string {
     value.frontFeeRate,
     value.backFeeRate,
     value.incomeTaxRate,
+    value.cashInterestRate,
   ];
   return fields.map((f) => (f ?? "").replace(/\|/g, " ")).join("|");
 }
@@ -165,6 +168,7 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
     frontFeeRate,
     backFeeRate,
     incomeTaxRate,
+    cashInterestRate,
   ] = parts;
 
   const result: Partial<BondLayoutInput> = {};
@@ -182,6 +186,7 @@ function unpack(text: string): Partial<BondLayoutInput> | null {
   if (frontFeeRate) result.frontFeeRate = frontFeeRate;
   if (backFeeRate) result.backFeeRate = backFeeRate;
   if (incomeTaxRate) result.incomeTaxRate = incomeTaxRate;
+  if (cashInterestRate) result.cashInterestRate = cashInterestRate;
 
   if (couponFrequencyCode !== "") {
     const couponFrequency = COUPON_FREQUENCY_BY_CODE[Number(couponFrequencyCode)];
