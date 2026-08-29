@@ -180,19 +180,15 @@ export function generateFixCashFlow(
       netAmount,
     });
 
-    const remainingFrontFee =
-      taxableIncome < availableFrontFee
-        ? availableFrontFee - taxableIncome
-        : 0;
-    const remainingBackFee =
-      remainingFrontFee > 0
-        ? availableBackFee
-        : taxableIncome > totalDeduction
-          ? 0
-          : availableBackFee - (taxableIncome - availableFrontFee);
-
-    carryFrontFee = remainingFrontFee;
-    carryBackFeeResidual = remainingBackFee;
+    // 공제는 "실제 과세되는 소득"만큼만 소진된다. 비과세 채권이자는 아무리 커도
+    // 공제를 갉아먹지 않으므로, 소진액 계산에서 제외한다(선취보수가 첫 회차에
+    // 통째로 소각되던 문제).
+    const taxedThisPeriod =
+      cashInterest + (bondTaxRate > 0 ? bondTaxableIncome : 0);
+    const deductionUsed = Math.min(totalDeduction, taxedThisPeriod);
+    const frontUsed = Math.min(availableFrontFee, deductionUsed);
+    carryFrontFee = availableFrontFee - frontUsed;
+    carryBackFeeResidual = availableBackFee - (deductionUsed - frontUsed);
     periodStart = date;
   });
 

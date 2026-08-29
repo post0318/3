@@ -287,16 +287,13 @@ export function generateMonthlyCashFlow(
         netAmount,
       });
 
-      // 공제 이월 (반기와 동일한 개념: 이번 회차 과세소득이 공제를 소진)
-      const consumed = Math.min(cashIncomePart, carryFrontFee + carryBackFeeResidual + backFeeThisPeriod);
-      let rem = consumed;
-      const usedFront = Math.min(rem, carryFrontFee);
-      rem -= usedFront;
-      carryFrontFee -= usedFront;
-      carryBackFeeResidual = Math.max(
-        0,
-        carryBackFeeResidual + backFeeThisPeriod - rem
-      );
+      // 공제 이월: 실제 과세되는 소득(현금이자)만큼만 소진. 비과세 채권이자는
+      // 공제를 갉아먹지 않는다(선취보수가 첫 회차에 소각되던 문제).
+      const availableBackFee = carryBackFeeResidual + backFeeThisPeriod;
+      const deductionUsed = Math.min(totalDeduction, cashInterest);
+      const frontUsed = Math.min(carryFrontFee, deductionUsed);
+      carryFrontFee -= frontUsed;
+      carryBackFeeResidual = availableBackFee - (deductionUsed - frontUsed);
       prev = ev.date;
       continue;
     }
