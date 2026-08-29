@@ -44,7 +44,9 @@ export function MonthlyCashFlowTable({
   const total = data.reduce(
     (a, r) => ({
       payout: a.payout + r.payout,
-      principalDelta: a.principalDelta + r.principalDelta,
+      // 원금차감분 합계는 월지급분만 (만기상환 원금상환은 제외)
+      principalDelta:
+        a.principalDelta + (r.type === "만기상환" ? 0 : r.principalDelta),
       cashInterest: a.cashInterest + r.cashInterest,
       incomeTax: a.incomeTax + r.incomeTax,
       netAmount: a.netAmount + r.netAmount,
