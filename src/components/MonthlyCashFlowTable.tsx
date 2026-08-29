@@ -68,7 +68,7 @@ export function MonthlyCashFlowTable({
   const isTruncated = data.length > HEAD_ROWS + TAIL_ROWS;
   const omitted = data.length - HEAD_ROWS - TAIL_ROWS;
 
-  const cell = "whitespace-nowrap py-2 pr-2 text-right tabular-nums";
+  const cell = "whitespace-nowrap py-2 pr-4 text-right tabular-nums";
   const renderRow = (row: MonthlyCashFlowRow) => (
     <tr
       key={`${row.date}-${row.type}`}
@@ -80,7 +80,7 @@ export function MonthlyCashFlowTable({
             : ""
       }`}
     >
-      <td className="whitespace-nowrap py-2 pr-2 text-zinc-700 dark:text-zinc-300">
+      <td className="whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
         {row.date}
         {row.type === "만기상환" && (
           <span className="block text-xs text-amber-600 dark:text-amber-500">
@@ -127,7 +127,7 @@ export function MonthlyCashFlowTable({
         {columns.map((c, i) => (
           <th
             key={c}
-            className={`whitespace-nowrap py-2 pr-2 font-medium ${
+            className={`whitespace-nowrap py-2 pr-4 font-medium ${
               i > 0 ? "text-right" : ""
             }`}
           >
@@ -141,13 +141,13 @@ export function MonthlyCashFlowTable({
   const foot = (
     <tfoot>
       <tr className="border-t border-zinc-200 bg-orange-50 font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-orange-950/30 dark:text-zinc-100">
-        <td className="py-2 pr-2">합 계</td>
+        <td className="py-2 pr-4">합 계</td>
         <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
-        <td className="py-2 pr-2" />
+        <td className="py-2 pr-4" />
         <td className={cell}>{fmt(total.bondInterest, isKrw)}</td>
         <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
         <td className={cell}>{fmt(total.taxableIncome, isKrw)}</td>
-        <td className="py-2 pr-2" />
+        <td className="py-2 pr-4" />
         <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
         <td className="py-2 text-right tabular-nums">
           {fmt(total.netAmount, isKrw)}
@@ -171,7 +171,7 @@ export function MonthlyCashFlowTable({
         <>
           {/* 화면: 전체 행 */}
           <div className="overflow-x-auto print:hidden">
-            <table className="w-full min-w-[720px] text-xs">
+            <table className="w-full min-w-[860px] text-sm">
               {head}
               <tbody>{data.map(renderRow)}</tbody>
               {foot}
@@ -180,7 +180,7 @@ export function MonthlyCashFlowTable({
 
           {/* 인쇄: 앞/뒤 일부만, 중간 생략 */}
           <div className="hidden overflow-x-auto print:block">
-            <table className="w-full min-w-[720px] text-xs">
+            <table className="w-full min-w-[860px] text-sm">
               {head}
               <tbody>
                 {(isTruncated ? data.slice(0, HEAD_ROWS) : data).map(renderRow)}
