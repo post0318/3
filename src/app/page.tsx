@@ -108,7 +108,7 @@ export default function Home() {
     ]
   );
 
-  const monthlyRows = useMemo(
+  const monthlyResult = useMemo(
     () =>
       !isMonthly
         ? null
@@ -130,6 +130,7 @@ export default function Home() {
             cashInterestRate: input.cashInterestRate,
             reserveRate: input.reserveRate,
             taxStatus: input.taxStatus,
+            comprehensiveTaxRate: input.incomeTaxRate,
           }),
     [
       isMonthly,
@@ -150,6 +151,7 @@ export default function Home() {
       input.cashInterestRate,
       input.reserveRate,
       input.taxStatus,
+      input.incomeTaxRate,
     ]
   );
 
@@ -195,7 +197,7 @@ export default function Home() {
           />
           {isMonthly ? (
             <MonthlyCashFlowTable
-              rows={monthlyRows}
+              rows={monthlyResult?.rows ?? null}
               custodyCurrency={input.custodyCurrency}
             />
           ) : (

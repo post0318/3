@@ -24,6 +24,7 @@ import {
 } from "@/lib/couponSchedule";
 import { computeBondPricing } from "@/lib/bondPricing";
 import { generateFixCashFlow } from "@/lib/cashFlowSchedule";
+import { generateMonthlyCashFlow } from "@/lib/monthlyCashFlow";
 import { computeMaturitySummary } from "@/lib/maturitySummary";
 import { encodeBondLink } from "@/lib/bondLink";
 import { BrazilBondSearchBox } from "@/components/BrazilBondSearchBox";
@@ -296,6 +297,56 @@ export function BondLayoutForm({
       value.incomeTaxRate,
     ]
   );
+
+  const monthlySummary = useMemo(
+    () =>
+      value.distributionType !== "월"
+        ? null
+        : (generateMonthlyCashFlow({
+            maturityDate: value.maturityDate,
+            couponRate: value.couponRate,
+            couponFrequency: value.couponFrequency,
+            purchaseYield: value.purchaseYield,
+            calcBasis: value.calcBasis,
+            trustContractDate: value.trustContractDate,
+            recentCouponDate: value.recentCouponDate,
+            tradeCurrency: value.tradeCurrency,
+            custodyCurrency: value.custodyCurrency,
+            purchaseFxRate: value.purchaseFxRate,
+            maturityFxRate: value.maturityFxRate,
+            trustInvestmentAmount: value.trustInvestmentAmount,
+            frontFeeRate: value.frontFeeRate,
+            backFeeRate: value.backFeeRate,
+            cashInterestRate: value.cashInterestRate,
+            reserveRate: value.reserveRate,
+            taxStatus: value.taxStatus,
+            comprehensiveTaxRate: value.incomeTaxRate,
+          })?.summary ?? null),
+    [
+      value.distributionType,
+      value.maturityDate,
+      value.couponRate,
+      value.couponFrequency,
+      value.purchaseYield,
+      value.calcBasis,
+      value.trustContractDate,
+      value.recentCouponDate,
+      value.tradeCurrency,
+      value.custodyCurrency,
+      value.purchaseFxRate,
+      value.maturityFxRate,
+      value.trustInvestmentAmount,
+      value.frontFeeRate,
+      value.backFeeRate,
+      value.cashInterestRate,
+      value.reserveRate,
+      value.taxStatus,
+      value.incomeTaxRate,
+    ]
+  );
+
+  const summary =
+    value.distributionType === "월" ? monthlySummary : maturitySummary;
 
   const handleCreateLink = async () => {
     const link = encodeBondLink(value);
@@ -832,10 +883,10 @@ export function BondLayoutForm({
             />
           </Row>
           <Row label="경과이자차감 원금">
-            {maturitySummary ? (
+            {summary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
-                  maturitySummary.investedPrincipal,
+                  summary.investedPrincipal,
                   value.custodyCurrency === "KRW"
                 )}
               </span>
@@ -844,10 +895,10 @@ export function BondLayoutForm({
             )}
           </Row>
           <Row label="지급이자 총액">
-            {maturitySummary ? (
+            {summary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
-                  maturitySummary.totalInterest,
+                  summary.totalInterest,
                   value.custodyCurrency === "KRW"
                 )}
               </span>
@@ -856,10 +907,10 @@ export function BondLayoutForm({
             )}
           </Row>
           <Row label="만기시 세후금액">
-            {maturitySummary ? (
+            {summary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
                 {formatSettlementAmount(
-                  maturitySummary.postTaxMaturityAmount,
+                  summary.postTaxMaturityAmount,
                   value.custodyCurrency === "KRW"
                 )}
               </span>
@@ -868,9 +919,9 @@ export function BondLayoutForm({
             )}
           </Row>
           <Row label="세후수익률">
-            {maturitySummary ? (
+            {summary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {(maturitySummary.postTaxYield * 100).toFixed(2)}%
+                {(summary.postTaxYield * 100).toFixed(2)}%
               </span>
             ) : (
               <ComputedValue />
@@ -896,9 +947,9 @@ export function BondLayoutForm({
             />
           </Row>
           <Row label="은행환산수익률">
-            {maturitySummary ? (
+            {summary ? (
               <span className="text-sm text-zinc-900 dark:text-zinc-100">
-                {(maturitySummary.bankEquivalentYield * 100).toFixed(2)}%
+                {(summary.bankEquivalentYield * 100).toFixed(2)}%
               </span>
             ) : (
               <ComputedValue />

@@ -4,7 +4,11 @@ import {
   CalcBasis,
   TaxStatus,
 } from "@/types/bondLayout";
-import { FREQUENCY_MONTHS, addMonths } from "@/lib/couponSchedule";
+import {
+  FREQUENCY_MONTHS,
+  addMonths,
+  getInvestmentDays,
+} from "@/lib/couponSchedule";
 import { computeBondPricing, roundDown } from "@/lib/bondPricing";
 import { CASH_INTEREST_TAX_RATE } from "@/lib/taxRules";
 import { koreaPaymentDate } from "@/lib/koreaCalendar";
@@ -52,9 +56,30 @@ export interface MonthlyCashFlowInputs {
   cashInterestRate: string;
   reserveRate: string;
   taxStatus: TaxStatus;
+  /** 은행환산수익률 계산용 종합소득세율(%) */
+  comprehensiveTaxRate: string;
+}
+
+/** 월지급 요약 (반기의 computeMaturitySummary와 같은 필드 이름으로 맞춤) */
+export interface MonthlyCashFlowSummary {
+  /** 경과이자차감 원금 = 만기 직전 원금 잔액 */
+  investedPrincipal: number;
+  /** 지급이자 총액 = 채권쿠폰 합계 + 현금이자 합계 */
+  totalInterest: number;
+  /** 만기시 세후금액 = 신탁만기일 청산 세후수령액 */
+  postTaxMaturityAmount: number;
+  /** 세후수익률 = (투자자 총수령 − 신탁투자금액) / 신탁투자금액 × 365/투자일수 */
+  postTaxYield: number;
+  bankEquivalentYield: number;
+}
+
+export interface MonthlyCashFlowResult {
+  rows: MonthlyCashFlowRow[];
+  summary: MonthlyCashFlowSummary;
 }
 
 const TRUST_MATURITY_LEAD_DAYS = 11;
+const DEFAULT_COMPREHENSIVE_TAX_RATE = 0.154;
 
 function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
@@ -80,7 +105,7 @@ type Event =
  */
 export function generateMonthlyCashFlow(
   input: MonthlyCashFlowInputs
-): MonthlyCashFlowRow[] | null {
+): MonthlyCashFlowResult | null {
   const pricing = computeBondPricing(input);
   if (!pricing) return null;
 
@@ -296,5 +321,37 @@ export function generateMonthlyCashFlow(
     }
   }
 
-  return rows;
+  // ── 요약 ──
+  const monthlyRows = rows.filter((r) => r.type === "월지급");
+  const investedPrincipal =
+    monthlyRows.length > 0
+      ? monthlyRows[monthlyRows.length - 1].principalBalance
+      : trustAmount;
+  const totalBondCoupon = semiCoupon * couponDates.length;
+  const totalCashInterest = rows.reduce((s, r) => s + r.cashInterest, 0);
+  const maturityRow = rows.find((r) => r.type === "만기상환");
+  const postTaxMaturityAmount = maturityRow ? maturityRow.netAmount : 0;
+  const totalReceived = rows.reduce((s, r) => s + r.netAmount, 0);
+
+  const investmentDays =
+    getInvestmentDays(input.trustContractDate, input.maturityDate) ?? 0;
+  const postTaxYield =
+    investmentDays > 0
+      ? ((totalReceived - trustAmount) / trustAmount) * (365 / investmentDays)
+      : 0;
+  const parsedComprehensive = Number(input.comprehensiveTaxRate);
+  const comprehensiveTaxRate =
+    input.comprehensiveTaxRate && !Number.isNaN(parsedComprehensive)
+      ? parsedComprehensive / 100
+      : DEFAULT_COMPREHENSIVE_TAX_RATE;
+
+  const summary: MonthlyCashFlowSummary = {
+    investedPrincipal,
+    totalInterest: totalBondCoupon + totalCashInterest,
+    postTaxMaturityAmount,
+    postTaxYield,
+    bankEquivalentYield: postTaxYield / (1 - comprehensiveTaxRate),
+  };
+
+  return { rows, summary };
 }
