@@ -148,16 +148,15 @@ export function generateMonthlyCashFlow(
     }
     m = addMonths(m, 1);
   }
-  // Phase 2: 각 쿠폰마다 수령 + (만기쿠폰 제외) 6회 월지급
+  // Phase 2: 각 쿠폰마다 수령 + 6회 월지급. 만기쿠폰은 분할하지 않고 신탁만기일
+  // 청산 때 원금상환과 함께 지급하므로 여기서 다루지 않는다.
   couponDates.forEach((cd, ci) => {
-    const isLast = toTime(cd) === toTime(maturity);
+    if (toTime(cd) === toTime(maturity)) return;
     events.push({ date: cd, kind: "쿠폰수령" });
-    if (!isLast) {
-      for (let k = 0; k < paymentsPerCycle; k++) {
-        const mm = addMonths(new Date(cd.getFullYear(), cd.getMonth(), 1), k);
-        const pd = koreaPaymentDate(mm.getFullYear(), mm.getMonth());
-        events.push({ date: pd, kind: "월지급", cycleIndex: ci, monthInCycle: k });
-      }
+    for (let k = 0; k < paymentsPerCycle; k++) {
+      const mm = addMonths(new Date(cd.getFullYear(), cd.getMonth(), 1), k);
+      const pd = koreaPaymentDate(mm.getFullYear(), mm.getMonth());
+      events.push({ date: pd, kind: "월지급", cycleIndex: ci, monthInCycle: k });
     }
   });
   events.push({ date: trustMaturity, kind: "만기상환" });
