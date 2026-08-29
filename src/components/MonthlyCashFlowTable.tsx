@@ -53,9 +53,7 @@ export function MonthlyCashFlowTable({
   );
 
   const isTruncated = data.length > HEAD_ROWS + TAIL_ROWS;
-  const shown = isTruncated
-    ? [...data.slice(0, HEAD_ROWS), null, ...data.slice(data.length - TAIL_ROWS)]
-    : data;
+  const omitted = data.length - HEAD_ROWS - TAIL_ROWS;
 
   const cell = "whitespace-nowrap py-2 pr-4 text-right tabular-nums";
   const renderRow = (row: MonthlyCashFlowRow) => (
@@ -107,6 +105,40 @@ export function MonthlyCashFlowTable({
     </tr>
   );
 
+  const head = (
+    <thead>
+      <tr className="border-b border-zinc-200 bg-zinc-100 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+        {columns.map((c, i) => (
+          <th
+            key={c}
+            className={`whitespace-nowrap py-2 pr-4 font-medium ${
+              i > 0 ? "text-right" : ""
+            }`}
+          >
+            {c}
+          </th>
+        ))}
+      </tr>
+    </thead>
+  );
+
+  const foot = (
+    <tfoot>
+      <tr className="border-t border-zinc-200 bg-orange-50 font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-orange-950/30 dark:text-zinc-100">
+        <td className="py-2 pr-4">합 계</td>
+        <td className="py-2 pr-4" />
+        <td className="py-2 pr-4" />
+        <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
+        <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
+        <td className="py-2 pr-4" />
+        <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
+        <td className="py-2 text-right tabular-nums">
+          {fmt(total.netAmount, isKrw)}
+        </td>
+      </tr>
+    </tfoot>
+  );
+
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950 sm:p-6 print:p-2">
       <h2 className="mb-5 print:mb-1 text-base font-semibold text-zinc-900 dark:text-zinc-100">
@@ -119,54 +151,39 @@ export function MonthlyCashFlowTable({
           월지급 현금흐름표가 표시됩니다.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 bg-zinc-100 text-left text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                {columns.map((c, i) => (
-                  <th
-                    key={c}
-                    className={`whitespace-nowrap py-2 pr-4 font-medium ${
-                      i > 0 ? "text-right" : ""
-                    }`}
-                  >
-                    {c}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row, i) =>
-                row === null ? (
-                  <tr key={`gap-${i}`}>
+        <>
+          {/* 화면: 전체 행 */}
+          <div className="overflow-x-auto print:hidden">
+            <table className="w-full min-w-[820px] text-sm">
+              {head}
+              <tbody>{data.map(renderRow)}</tbody>
+              {foot}
+            </table>
+          </div>
+
+          {/* 인쇄: 앞/뒤 일부만, 중간 생략 */}
+          <div className="hidden overflow-x-auto print:block">
+            <table className="w-full min-w-[820px] text-sm">
+              {head}
+              <tbody>
+                {(isTruncated ? data.slice(0, HEAD_ROWS) : data).map(renderRow)}
+                {isTruncated && (
+                  <tr>
                     <td
                       colSpan={columns.length}
                       className="py-2 text-center text-xs text-zinc-400 dark:text-zinc-600"
                     >
-                      ⋮ 중간 {data.length - HEAD_ROWS - TAIL_ROWS}건 생략 ⋮
+                      ⋮ 중간 {omitted.toLocaleString("ko-KR")}건 생략 ⋮
                     </td>
                   </tr>
-                ) : (
-                  renderRow(row)
-                )
-              )}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-zinc-200 bg-orange-50 font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-orange-950/30 dark:text-zinc-100">
-                <td className="py-2 pr-4">합 계</td>
-                <td className="py-2 pr-4" />
-                <td className="py-2 pr-4" />
-                <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
-                <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
-                <td className="py-2 pr-4" />
-                <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
-                <td className="py-2 text-right tabular-nums">
-                  {fmt(total.netAmount, isKrw)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                )}
+                {isTruncated &&
+                  data.slice(data.length - TAIL_ROWS).map(renderRow)}
+              </tbody>
+              {foot}
+            </table>
+          </div>
+        </>
       )}
     </section>
   );
