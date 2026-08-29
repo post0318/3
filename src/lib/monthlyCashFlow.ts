@@ -28,11 +28,11 @@ export interface MonthlyCashFlowRow {
   payout: number;
   /** 표의 "원금" 열: 월지급 회차는 원금 나간 분(음수), 만기상환 행은 원금수령분(양수) */
   principalDelta: number;
-  /** 그 회차 지급액 중 채권쿠폰 이자분 (정보성 표시. 이미 보유현금·세후수령액에 반영됨) */
+  /** "채권이자" 열: 그 반기에 수령한 쿠폰 총액(사이클 첫 회차 + 만기상환에만). 월분할액 아님 */
   bondInterest: number;
   /** 그 구간 보유현금 현금성이자 (과세 대상 소득) */
   cashInterest: number;
-  /** 과세소득 = 채권이자 + 현금이자 (반기표와 동일. 채권이자는 비과세라 과세표준엔 안 들어감) */
+  /** 과세소득 = 채권이자(반기 수령분) + 현금이자. 채권이자는 비과세라 과세표준엔 안 들어감 */
   taxableIncome: number;
   /** 과세표준 = 현금이자 − 선취/후취보수 공제(잔여) */
   taxBase: number;
@@ -254,7 +254,9 @@ export function generateMonthlyCashFlow(
         const realIntPart = Math.min(remainder, Math.max(0, remainingRealInterest));
         remainingRealInterest -= realIntPart;
         remainder -= realIntPart;
-        bondInterest = realIntPart;
+        // "채권이자" 열은 그 반기에 수령한 쿠폰 총액을 사이클 첫 회차에 한 번 표시.
+        // 월별로 나눠 지급되는 금액이 아니라 반기 수령액이다.
+        if (ev.monthInCycle === 0) bondInterest = semiCoupon;
         const preOwnedPart = Math.min(remainder, Math.max(0, remainingPreOwned));
         remainingPreOwned -= preOwnedPart;
         remainder -= preOwnedPart;
