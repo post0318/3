@@ -78,10 +78,10 @@ export function MonthlyCashFlowTable({
         )}
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
-        {fmt(row.principalBalance, isKrw)}
+        {row.principalBalance ? fmt(row.principalBalance, isKrw) : ""}
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
-        {fmt(row.cashBalance, isKrw)}
+        {row.cashBalance ? fmt(row.cashBalance, isKrw) : ""}
       </td>
       <td
         className={`${cell} ${
