@@ -20,16 +20,20 @@ export interface MonthlyCashFlowRow {
   type: MonthlyRowType;
   /** 이자(쿠폰)를 수취한 뒤의 지급기인지 (Phase 2). 화면에서 행 색을 다르게 표시 */
   isInterestPeriod: boolean;
-  /** 경과이자차감 원금 잔액 (그 회차 반영 후) */
+  /** 경과이자차감 원금 잔액 (그 회차 반영 후). 표에는 표시 안 하고 요약용 */
   principalBalance: number;
   /** 보유현금 잔액 (그 회차 반영 후) */
   cashBalance: number;
-  /** 월지급액 (만기상환 행은 청산 지급액) */
+  /** 월지급액 (만기상환 행은 청산 지급액). 표에는 표시 안 함 */
   payout: number;
-  /** 원금차감 (음수). 원금 잔액을 줄인 만큼 */
+  /** 표의 "원금" 열: 월지급 회차는 원금 나간 분(음수), 만기상환 행은 원금수령분(양수) */
   principalDelta: number;
+  /** 그 회차 지급액 중 채권쿠폰 이자분 (정보성 표시. 이미 보유현금·세후수령액에 반영됨) */
+  bondInterest: number;
   /** 그 구간 보유현금 현금성이자 (과세 대상 소득) */
   cashInterest: number;
+  /** 과세소득 = 채권이자 + 현금이자 (반기표와 동일. 채권이자는 비과세라 과세표준엔 안 들어감) */
+  taxableIncome: number;
   /** 과세표준 = 현금이자 − 선취/후취보수 공제(잔여) */
   taxBase: number;
   /** 소득세 = 과세표준 × 15.4% */
@@ -227,6 +231,7 @@ export function generateMonthlyCashFlow(
 
     let payout = 0;
     let principalDelta = 0;
+    let bondInterest = 0;
 
     if (ev.kind === "월지급") {
       const isLastInCycle =
@@ -249,6 +254,7 @@ export function generateMonthlyCashFlow(
         const realIntPart = Math.min(remainder, Math.max(0, remainingRealInterest));
         remainingRealInterest -= realIntPart;
         remainder -= realIntPart;
+        bondInterest = realIntPart;
         const preOwnedPart = Math.min(remainder, Math.max(0, remainingPreOwned));
         remainingPreOwned -= preOwnedPart;
         remainder -= preOwnedPart;
@@ -271,7 +277,9 @@ export function generateMonthlyCashFlow(
         cashBalance: trunc(held),
         payout,
         principalDelta,
+        bondInterest,
         cashInterest,
+        taxableIncome: bondInterest + cashInterest,
         taxBase,
         incomeTax,
         netAmount,
@@ -294,9 +302,12 @@ export function generateMonthlyCashFlow(
     if (ev.kind === "만기상환") {
       held += semiCoupon + principalRedemption; // 마지막 쿠폰 + 원금상환 (분할 안 함)
       payout = trunc(held);
-      principalDelta = -trunc(principalLedger);
+      // 만기상환 행은 원금을 "수령"한다 → 양수. 금액 = 상환 액면 × 만기환율
+      // (경과이자차감 원금 잔액이 아님). 반기표의 원금 열과 같은 취급.
+      principalDelta = principalRedemption;
       principalLedger = 0;
       held = 0;
+      bondInterest = semiCoupon; // 만기에 받는 마지막 반기쿠폰
 
       const taxBase = trunc(
         cashInterest > totalDeduction ? cashInterest - totalDeduction : 0
@@ -312,7 +323,9 @@ export function generateMonthlyCashFlow(
         cashBalance: 0,
         payout,
         principalDelta,
+        bondInterest,
         cashInterest,
+        taxableIncome: bondInterest + cashInterest,
         taxBase,
         incomeTax,
         netAmount,

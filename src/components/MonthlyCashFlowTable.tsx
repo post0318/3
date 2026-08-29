@@ -34,8 +34,9 @@ export function MonthlyCashFlowTable({
     "지급일",
     "원금",
     "보유현금",
-    "원금차감분",
+    "채권이자",
     "현금이자",
+    "과세소득",
     "과세표준",
     "소득세",
     "세후수령액",
@@ -44,14 +45,24 @@ export function MonthlyCashFlowTable({
   const total = data.reduce(
     (a, r) => ({
       payout: a.payout + r.payout,
-      // 원금차감분 합계는 월지급분만 (만기상환 원금상환은 제외)
+      // 원금 합계는 월지급분만 (만기상환 원금수령분은 제외)
       principalDelta:
         a.principalDelta + (r.type === "만기상환" ? 0 : r.principalDelta),
+      bondInterest: a.bondInterest + r.bondInterest,
       cashInterest: a.cashInterest + r.cashInterest,
+      taxableIncome: a.taxableIncome + r.taxableIncome,
       incomeTax: a.incomeTax + r.incomeTax,
       netAmount: a.netAmount + r.netAmount,
     }),
-    { payout: 0, principalDelta: 0, cashInterest: 0, incomeTax: 0, netAmount: 0 }
+    {
+      payout: 0,
+      principalDelta: 0,
+      bondInterest: 0,
+      cashInterest: 0,
+      taxableIncome: 0,
+      incomeTax: 0,
+      netAmount: 0,
+    }
   );
 
   const isTruncated = data.length > HEAD_ROWS + TAIL_ROWS;
@@ -77,12 +88,6 @@ export function MonthlyCashFlowTable({
           </span>
         )}
       </td>
-      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
-        {row.principalBalance ? fmt(row.principalBalance, isKrw) : ""}
-      </td>
-      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
-        {row.cashBalance ? fmt(row.cashBalance, isKrw) : ""}
-      </td>
       <td
         className={`${cell} ${
           row.principalDelta < 0
@@ -93,7 +98,16 @@ export function MonthlyCashFlowTable({
         {fmtParen(row.principalDelta, isKrw)}
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.cashBalance ? fmt(row.cashBalance, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.bondInterest ? fmt(row.bondInterest, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
         {row.cashInterest ? fmt(row.cashInterest, isKrw) : ""}
+      </td>
+      <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
+        {row.taxableIncome ? fmt(row.taxableIncome, isKrw) : ""}
       </td>
       <td className={`${cell} text-zinc-700 dark:text-zinc-300`}>
         {row.taxBase ? fmt(row.taxBase, isKrw) : ""}
@@ -128,10 +142,11 @@ export function MonthlyCashFlowTable({
     <tfoot>
       <tr className="border-t border-zinc-200 bg-orange-50 font-semibold text-zinc-900 dark:border-zinc-800 dark:bg-orange-950/30 dark:text-zinc-100">
         <td className="py-2 pr-4">합 계</td>
-        <td className="py-2 pr-4" />
-        <td className="py-2 pr-4" />
         <td className={cell}>{fmtParen(total.principalDelta, isKrw)}</td>
+        <td className="py-2 pr-4" />
+        <td className={cell}>{fmt(total.bondInterest, isKrw)}</td>
         <td className={cell}>{fmt(total.cashInterest, isKrw)}</td>
+        <td className={cell}>{fmt(total.taxableIncome, isKrw)}</td>
         <td className="py-2 pr-4" />
         <td className={cell}>{fmt(total.incomeTax, isKrw)}</td>
         <td className="py-2 text-right tabular-nums">
@@ -156,7 +171,7 @@ export function MonthlyCashFlowTable({
         <>
           {/* 화면: 전체 행 */}
           <div className="overflow-x-auto print:hidden">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[940px] text-sm">
               {head}
               <tbody>{data.map(renderRow)}</tbody>
               {foot}
@@ -165,7 +180,7 @@ export function MonthlyCashFlowTable({
 
           {/* 인쇄: 앞/뒤 일부만, 중간 생략 */}
           <div className="hidden overflow-x-auto print:block">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[940px] text-sm">
               {head}
               <tbody>
                 {(isTruncated ? data.slice(0, HEAD_ROWS) : data).map(renderRow)}
