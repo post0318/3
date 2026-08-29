@@ -75,15 +75,15 @@ export function MonthlyCashFlowTable({
       className={`border-b border-zinc-100 last:border-0 dark:border-zinc-900 ${
         row.type === "만기상환"
           ? "bg-amber-100/70 dark:bg-amber-950/30"
-          : row.isInterestPeriod
+          : row.bondInterest
             ? "bg-orange-50 dark:bg-orange-950/20"
             : ""
       }`}
     >
-      <td className="whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
+      <td className="w-28 whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
         {row.date}
         {row.type === "만기상환" && (
-          <span className="ml-1 text-xs text-amber-600 dark:text-amber-500">
+          <span className="block text-xs text-amber-600 dark:text-amber-500">
             만기상환
           </span>
         )}

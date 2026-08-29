@@ -18,8 +18,6 @@ export type MonthlyRowType = "월지급" | "만기상환";
 export interface MonthlyCashFlowRow {
   date: string;
   type: MonthlyRowType;
-  /** 이자(쿠폰)를 수취한 뒤의 지급기인지 (Phase 2). 화면에서 행 색을 다르게 표시 */
-  isInterestPeriod: boolean;
   /** 경과이자차감 원금 잔액 (그 회차 반영 후). 표에는 표시 안 하고 요약용 */
   principalBalance: number;
   /** 보유현금 잔액 (그 회차 반영 후) */
@@ -274,7 +272,6 @@ export function generateMonthlyCashFlow(
       rows.push({
         date: ev.date.toISOString().slice(0, 10),
         type: "월지급",
-        isInterestPeriod: ev.cycleIndex !== -1,
         principalBalance: trunc(principalLedger),
         cashBalance: trunc(held),
         payout,
@@ -317,7 +314,6 @@ export function generateMonthlyCashFlow(
       rows.push({
         date: ev.date.toISOString().slice(0, 10),
         type: "만기상환",
-        isInterestPeriod: true,
         principalBalance: 0,
         cashBalance: 0,
         payout,
