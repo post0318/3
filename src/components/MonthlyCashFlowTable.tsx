@@ -62,7 +62,11 @@ export function MonthlyCashFlowTable({
     <tr
       key={`${row.date}-${row.type}`}
       className={`border-b border-zinc-100 last:border-0 dark:border-zinc-900 ${
-        row.type === "만기상환" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+        row.type === "만기상환"
+          ? "bg-amber-100/70 dark:bg-amber-950/30"
+          : row.isInterestPeriod
+            ? "bg-orange-50 dark:bg-orange-950/20"
+            : ""
       }`}
     >
       <td className="whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
