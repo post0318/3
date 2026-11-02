@@ -1,49 +1,49 @@
 {
-  "asOfDate": "2026-10-23",
-  "generatedAt": "2026-10-26T15:36:41.675Z",
+  "asOfDate": "2026-10-30",
+  "generatedAt": "2026-11-02T18:57:47.180Z",
   "source": "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv",
   "bonds": [
     {
       "maturityDate": "2027-01-01",
-      "buyRate": 13.22,
-      "sellRate": 13.34,
-      "buyPrice": 1025.3,
-      "sellPrice": 1024.59
+      "buyRate": 13.53,
+      "sellRate": 13.65,
+      "buyPrice": 1027.37,
+      "sellPrice": 1026.67
     },
     {
       "maturityDate": "2029-01-01",
-      "buyRate": 12.6,
-      "sellRate": 12.72,
-      "buyPrice": 986.7,
-      "sellPrice": 984.2
+      "buyRate": 14.77,
+      "sellRate": 14.89,
+      "buyPrice": 953.55,
+      "sellPrice": 951.12
     },
     {
       "maturityDate": "2031-01-01",
-      "buyRate": 12.85,
-      "sellRate": 12.97,
-      "buyPrice": 947.73,
-      "sellPrice": 943.9
+      "buyRate": 15.29,
+      "sellRate": 15.41,
+      "buyPrice": 884.81,
+      "sellPrice": 881.27
     },
     {
       "maturityDate": "2033-01-01",
-      "buyRate": 12.93,
-      "sellRate": 13.05,
-      "buyPrice": 916.71,
-      "sellPrice": 911.89
+      "buyRate": 15.42,
+      "sellRate": 15.54,
+      "buyPrice": 834.25,
+      "sellPrice": 829.99
     },
     {
       "maturityDate": "2035-01-01",
-      "buyRate": 12.94,
-      "sellRate": 13.06,
-      "buyPrice": 894.66,
-      "sellPrice": 889.12
+      "buyRate": 15.39,
+      "sellRate": 15.51,
+      "buyPrice": 800.78,
+      "sellPrice": 796.02
     },
     {
       "maturityDate": "2037-01-01",
-      "buyRate": 12.9,
-      "sellRate": 13.02,
-      "buyPrice": 879.1,
-      "sellPrice": 873.02
+      "buyRate": 15.23,
+      "sellRate": 15.35,
+      "buyPrice": 780.7,
+      "sellPrice": 775.57
     }
   ]
 }
